@@ -44,11 +44,12 @@
   (and -process (eq (process-status -process) 'run)))
 
 (defun -start (&rest args)
-  (-kill)
+  (kill)
   (let ((socket (make-temp-name
                  (expand-file-name "mpv-mode-" temporary-file-directory))))
     (setq -process
           (apply #'start-process "mpv-player" nil executable
+                 "--no-terminal"
                  (concat "--input-unix-socket=" socket) args))
     (set-process-query-on-exit-flag -process nil)
     (while (and (-alive-p) (not (file-exists-p socket)))
@@ -63,11 +64,13 @@
        (-tq-filter -queue string)))
     t))
 
-(defun -kill ()
-  (when (-alive-p)
-    (kill-process -process))
+(defun kill ()
+  "Kill the mpv process."
+  (interactive)
   (when -queue
     (tq-close -queue))
+  (when (-alive-p)
+    (kill-process -process))
   (setq -process nil)
   (setq -queue nil))
 
@@ -80,12 +83,13 @@ the process has finished replying to any previous questions.
 This produces more reliable results with some processes.
 
 Note that we do not use the regexp and closure arguments of
-`-tq-enque', see our custom implementation of `tq-process-buffer'
+`tq-enqueue', see our custom implementation of `tq-process-buffer'
 below."
-  (tq-enqueue
-   -queue
-   (concat (json-encode `((command . ,command))) "\n")
-   "" nil fn delay-command))
+  (when (-alive-p)
+    (tq-enqueue
+     -queue
+     (concat (json-encode `((command . ,command))) "\n")
+     "" nil fn delay-command)))
 
 (defun -tq-filter (tq string)
   (let ((buffer (tq-buffer tq)))
@@ -107,7 +111,7 @@ drops unsolicited event messages."
     ;; event messages have form {"event": ...}
     ;; answers have form {"error": ..., "data": ...}
     ;; FIXME: handle errors?
-    (unless (assoc 'event answer)
+    (unless (or (assoc 'event answer) (tq-queue-empty tq))
       (unwind-protect
           (condition-case nil
               (funcall (tq-queue-head-fn tq)
