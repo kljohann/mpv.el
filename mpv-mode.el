@@ -137,17 +137,46 @@ drops unsolicited event messages."
   (interactive)
   (-enqueue '("cycle" "pause") #'ignore))
 
-(defun insert-playback-position ()
-  "Insert the current playback position at point."
-  (interactive)
+(defun insert-playback-position (&optional arg)
+  "Insert the current playback position at point.
+
+When called with a prefix, insert a timer list item like `org-timer-item'."
+  (interactive "P")
   (let ((buffer (current-buffer)))
     (-enqueue '("get_property" "playback-time")
               (lambda (time)
                 (let* ((secs (truncate time))
                        (usecs (round (* 1000 (- time secs)))))
                   (with-current-buffer buffer
-                    (insert (format-time-string -position-format
-                                                `(0 ,secs ,usecs 0) t))))))))
+                    (funcall
+                     (if arg #'-position-insert-as-org-item #'insert)
+                     (format-time-string -position-format
+                                         `(0 ,secs ,usecs 0) t))))))))
+
+(defun -position-insert-as-org-item (time-string)
+  "Insert a description-type item with the playback position.
+
+See `org-timer-item' which this is based on."
+  (require 'org)
+  (let ((itemp (org-in-item-p)) (pos (point)))
+    (cond
+     ;; In a timer list, insert with `org-list-insert-item',
+     ;; then fix the list.
+     ((and itemp (goto-char itemp) (org-at-item-timer-p))
+      (let* ((struct (org-list-struct))
+             (prevs (org-list-prevs-alist struct))
+             (s (concat time-string " :: ")))
+        (setq struct (org-list-insert-item pos struct prevs nil s))
+        (org-list-write-struct struct (org-list-parents-alist struct))
+        (looking-at org-list-full-item-re)
+        (goto-char (match-end 0))))
+     ;; In a list of another type, don't break anything: throw an error.
+     (itemp (goto-char pos) (error "This is not a timer list"))
+     ;; Else, start a new list.
+     (t
+      (beginning-of-line)
+      (org-indent-line)
+      (insert  (concat "- " time-string " :: "))))))
 
 (defun seek-to-position-at-point ()
   "Jump to playback position as inserted by `mpv-mode-insert-playback-position'."
