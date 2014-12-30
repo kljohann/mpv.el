@@ -1,4 +1,4 @@
-;;; mpv-mode.el --- control mpv for easy note-taking
+;;; mpv-mode.el --- control mpv for easy note-taking  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2014  Johann Klähn
 
@@ -36,6 +36,10 @@
 (defcustom executable "mpv"
   "Name or path to the mpv executable."
   :type 'file)
+
+(defcustom position-format "%H:%M:%S"
+  "Format used for inserting playback position."
+  :type 'string)
 
 (defvar -process nil)
 (defvar -queue nil)
@@ -121,6 +125,28 @@ drops unsolicited event messages."
             (error nil))
         (tq-queue-pop tq)))
     (-tq-process-buffer tq)))
+
+(defun pause ()
+  "Pause or unpause playback."
+  (interactive)
+  (-enqueue '("get_property" "pause")
+            (lambda (paused)
+              (-enqueue
+               `("set_property" "pause"
+                 ,(if (eq paused :json-false) t :json-false))
+               #'ignore))))
+
+(defun insert-playback-position ()
+  "Insert the current playback position at point."
+  (interactive)
+  (let ((buffer (current-buffer)))
+    (-enqueue '("get_property" "playback-time")
+              (lambda (time)
+                (let* ((secs (truncate time))
+                       (usecs (round (* 1000 (- time secs)))))
+                  (with-current-buffer buffer
+                    (insert (format-time-string position-format
+                                                `(0 ,secs ,usecs 0) t))))))))
 )
 
 (provide 'mpv-mode)
