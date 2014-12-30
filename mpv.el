@@ -21,7 +21,17 @@
 
 ;;; Commentary:
 
+;; This package is a potpourri of helper functions to control a mpv
+;; process via its IPC interface.  You might want to add the following
+;; to your init file:
 ;;
+;; (org-add-link-type "mpv" #'mpv-play)
+;; (defun org-mpv-complete-link (&optional arg)
+;;   (replace-regexp-in-string
+;;    "file:" "mpv:"
+;;    (org-file-complete-link arg)
+;;    t t))
+;; (add-hook 'org-open-at-point-functions #'mpv-seek-to-position-at-point)
 
 ;;; Code:
 
@@ -78,23 +88,6 @@ it will be killed."
        (-tq-filter -queue string)))
     t))
 
-(defun kill ()
-  "Kill the mpv process."
-  (interactive)
-  (when -queue
-    (tq-close -queue))
-  (when (-alive-p)
-    (kill-process -process))
-  (setq -process nil)
-  (setq -queue nil))
-
-(defun play (path)
-  "Start an mpv process playing the file at PATH.
-
-You can use this with `org-add-link-type' or `org-file-apps'."
-  (interactive "fFile: ")
-  (-start path))
-
 (defun -enqueue (command fn &optional delay-command)
   "Add COMMAND to the transaction queue.
 
@@ -150,6 +143,23 @@ drops unsolicited event messages."
               (error nil))
           (tq-queue-pop tq)))
       (-tq-process-buffer tq))))
+
+(defun play (path)
+  "Start an mpv process playing the file at PATH.
+
+You can use this with `org-add-link-type' or `org-file-apps'."
+  (interactive "fFile: ")
+  (-start path))
+
+(defun kill ()
+  "Kill the mpv process."
+  (interactive)
+  (when -queue
+    (tq-close -queue))
+  (when (-alive-p)
+    (kill-process -process))
+  (setq -process nil)
+  (setq -queue nil))
 
 (defun pause ()
   "Pause or unpause playback."
