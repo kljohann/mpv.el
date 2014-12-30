@@ -50,9 +50,14 @@
 (defvar -queue nil)
 
 (defun -alive-p ()
+  "Return non-nil if an mpv process is running."
   (and -process (eq (process-status -process) 'run)))
 
 (defun -start (&rest args)
+  "Start an mpv process with the specified ARGS.
+
+If there already is an mpv process controlled by this Emacs instance,
+it will be killed."
   (kill)
   (let ((socket (make-temp-name
                  (expand-file-name "mpv-" temporary-file-directory))))
@@ -84,6 +89,9 @@
   (setq -queue nil))
 
 (defun play (path)
+  "Start an mpv process playing the file at PATH.
+
+You can use this with `org-add-link-type' or `org-file-apps'."
   (interactive "fFile: ")
   (-start path))
 
@@ -91,7 +99,7 @@
   "Add COMMAND to the transaction queue.
 
 FN will be called with the corresponding answer.
-If DELAY-QUESTION is non-nil, delay sending this question until
+If DELAY-COMMAND is non-nil, delay sending this question until
 the process has finished replying to any previous questions.
 This produces more reliable results with some processes.
 
@@ -106,6 +114,13 @@ below."
     t))
 
 (defun -tq-filter (tq string)
+"Append to the queue's buffer and process the new data.
+
+TQ is a transaction queue created by `tq-create'.
+STRING is the data fragment received from the process.
+
+This is a verbatim copy of `tq-filter' that uses
+`mpv--tq-process-buffer' instead of `tq-process-buffer'."
   (let ((buffer (tq-buffer tq)))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
@@ -144,7 +159,7 @@ drops unsolicited event messages."
 (defun insert-playback-position (&optional arg)
   "Insert the current playback position at point.
 
-When called with a prefix, insert a timer list item like `org-timer-item'."
+When called with a non-nil ARG, insert a timer list item like `org-timer-item'."
   (interactive "P")
   (let ((buffer (current-buffer)))
     (-enqueue '("get_property" "playback-time")
@@ -158,7 +173,7 @@ When called with a prefix, insert a timer list item like `org-timer-item'."
                                          `(0 ,secs ,usecs 0) t))))))))
 
 (defun -position-insert-as-org-item (time-string)
-  "Insert a description-type item with the playback position.
+  "Insert a description-type item with the playback position TIME-STRING.
 
 See `org-timer-item' which this is based on."
   (require 'org)
