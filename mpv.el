@@ -1,4 +1,4 @@
-;;; mpv-mode.el --- control mpv for easy note-taking  -*- lexical-binding: t; -*-
+;;; mpv.el --- control mpv for easy note-taking  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2014  Johann Klähn
 
@@ -30,8 +30,8 @@
 (require 'tq)
 (require 'json)
 
-(define-namespace mpv-mode-
-:package mpv-mode
+(define-namespace mpv-
+:package mpv
 :group external
 
 (defcustom executable "mpv"
@@ -55,7 +55,7 @@
 (defun -start (&rest args)
   (kill)
   (let ((socket (make-temp-name
-                 (expand-file-name "mpv-mode-" temporary-file-directory))))
+                 (expand-file-name "mpv-" temporary-file-directory))))
     (setq -process
           (apply #'start-process "mpv-player" nil executable
                  "--no-terminal"
@@ -196,5 +196,5 @@ This can be used with the `org-open-at-point-functions' hook."
         (-enqueue `("seek" ,(+ (* 3600 hours) (* 60 mins) secs) "absolute") #'ignore)))))
 )
 
-(provide 'mpv-mode)
-;;; mpv-mode.el ends here
+(provide 'mpv)
+;;; mpv.el ends here
