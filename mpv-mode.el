@@ -32,6 +32,8 @@
 (require 'json)
 
 (define-namespace mpv-mode-
+:package mpv-mode
+:group external
 
 (defcustom executable "mpv"
   "Name or path to the mpv executable."
@@ -129,12 +131,7 @@ drops unsolicited event messages."
 (defun pause ()
   "Pause or unpause playback."
   (interactive)
-  (-enqueue '("get_property" "pause")
-            (lambda (paused)
-              (-enqueue
-               `("set_property" "pause"
-                 ,(if (eq paused :json-false) t :json-false))
-               #'ignore))))
+  (-enqueue '("cycle" "pause") #'ignore))
 
 (defun insert-playback-position ()
   "Insert the current playback position at point."
