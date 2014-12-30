@@ -106,6 +106,8 @@ Replacement for `tq-process-buffer' that ignores regular expressions
 \(answers are always passed to the first handler in the queue) and
 drops unsolicited event messages."
   (goto-char (point-min))
+  (unless (memq (char-after (point)) '(nil ?{))
+    (skip-chars-forward "^{"))
   (-when-let (answer (ignore-errors (json-read)))
     (delete-region (point-min) (point))
     ;; event messages have form {"event": ...}
