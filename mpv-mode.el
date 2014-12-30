@@ -28,7 +28,6 @@
 (eval-when-compile (require 'names))
 
 (require 'tq)
-(require 'dash)
 (require 'json)
 
 (define-namespace mpv-mode-
@@ -116,21 +115,21 @@ Replacement for `tq-process-buffer' that ignores regular expressions
 \(answers are always passed to the first handler in the queue) and
 drops unsolicited event messages."
   (goto-char (point-min))
-  (unless (memq (char-after (point)) '(nil ?{))
-    (skip-chars-forward "^{"))
-  (-when-let (answer (ignore-errors (json-read)))
-    (delete-region (point-min) (point))
-    ;; event messages have form {"event": ...}
-    ;; answers have form {"error": ..., "data": ...}
-    ;; FIXME: handle errors?
-    (unless (or (assoc 'event answer) (tq-queue-empty tq))
-      (unwind-protect
-          (condition-case nil
-              (funcall (tq-queue-head-fn tq)
-                       (cdr (assoc 'data answer)))
-            (error nil))
-        (tq-queue-pop tq)))
-    (-tq-process-buffer tq)))
+  (skip-chars-forward "^{")
+  (let ((answer (ignore-errors (json-read))))
+    (when answer
+      (delete-region (point-min) (point))
+      ;; event messages have form {"event": ...}
+      ;; answers have form {"error": ..., "data": ...}
+      ;; FIXME: handle errors?
+      (unless (or (assoc 'event answer) (tq-queue-empty tq))
+        (unwind-protect
+            (condition-case nil
+                (funcall (tq-queue-head-fn tq)
+                         (cdr (assoc 'data answer)))
+              (error nil))
+          (tq-queue-pop tq)))
+      (-tq-process-buffer tq))))
 
 (defun pause ()
   "Pause or unpause playback."
