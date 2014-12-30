@@ -39,9 +39,13 @@
   "Name or path to the mpv executable."
   :type 'file)
 
-(defcustom position-format "%H:%M:%S"
-  "Format used for inserting playback position."
-  :type 'string)
+(defvar -position-format "%H:%M:%S"
+  "Format used for inserting playback position.")
+(defvar -position-regexp
+  (rx (group (repeat 2 num)) ":"
+      (group (repeat 2 num)) ":"
+      (group (repeat 2 num))))
+(defvar -position-skipchars ":[:digit:]")
 
 (defvar -process nil)
 (defvar -queue nil)
@@ -142,8 +146,19 @@ drops unsolicited event messages."
                 (let* ((secs (truncate time))
                        (usecs (round (* 1000 (- time secs)))))
                   (with-current-buffer buffer
-                    (insert (format-time-string position-format
+                    (insert (format-time-string -position-format
                                                 `(0 ,secs ,usecs 0) t))))))))
+
+(defun seek-to-position-at-point ()
+  "Jump to playback position as inserted by `mpv-mode-insert-playback-position'."
+  (interactive)
+  (save-excursion
+    (skip-chars-backward -position-skipchars (point-at-bol))
+    (when (looking-at -position-regexp)
+      (let ((hours (string-to-number (match-string 1)))
+            (mins (string-to-number (match-string 2)))
+            (secs (string-to-number (match-string 3))))
+        (-enqueue `("seek" ,(+ (* 3600 hours) (* 60 mins) secs) "absolute") #'ignore)))))
 )
 
 (provide 'mpv-mode)
