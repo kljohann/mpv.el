@@ -4,7 +4,7 @@
 
 ;; Author: Johann Klähn <kljohann@gmail.com>
 ;; Keywords: tools, multimedia
-;; Package-Requires: ((json "1.3"))
+;; Package-Requires: ((json "1.3") (org "8.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -37,8 +37,10 @@
 
 (eval-when-compile (require 'names))
 
-(require 'tq)
 (require 'json)
+(require 'org)
+(require 'org-timer)
+(require 'tq)
 
 (define-namespace mpv-
 :package mpv
@@ -47,14 +49,6 @@
 (defcustom executable "mpv"
   "Name or path to the mpv executable."
   :type 'file)
-
-(defvar -position-format "%H:%M:%S"
-  "Format used for inserting playback position.")
-(defvar -position-regexp
-  (rx (group (repeat 2 num)) ":"
-      (group (repeat 2 num)) ":"
-      (group (repeat 2 num))))
-(defvar -position-skipchars ":[:digit:]")
 
 (defvar -process nil)
 (defvar -queue nil)
@@ -137,10 +131,10 @@ drops unsolicited event messages."
       ;; FIXME: handle errors?
       (unless (or (assoc 'event answer) (tq-queue-empty tq))
         (unwind-protect
-            (condition-case nil
-                (funcall (tq-queue-head-fn tq)
-                         (cdr (assoc 'data answer)))
-              (error nil))
+            ;; (condition-case nil
+            (funcall (tq-queue-head-fn tq)
+                     (cdr (assoc 'data answer)))
+              ;; (error nil))
           (tq-queue-pop tq)))
       (-tq-process-buffer tq))))
 
@@ -174,19 +168,15 @@ When called with a non-nil ARG, insert a timer list item like `org-timer-item'."
   (let ((buffer (current-buffer)))
     (-enqueue '("get_property" "playback-time")
               (lambda (time)
-                (let* ((secs (truncate time))
-                       (usecs (round (* 1000 (- time secs)))))
-                  (with-current-buffer buffer
-                    (funcall
-                     (if arg #'-position-insert-as-org-item #'insert)
-                     (format-time-string -position-format
-                                         `(0 ,secs ,usecs 0) t))))))))
+                (with-current-buffer buffer
+                  (funcall
+                   (if arg #'-position-insert-as-org-item #'insert)
+                   (org-timer-secs-to-hms (round time))))))))
 
 (defun -position-insert-as-org-item (time-string)
   "Insert a description-type item with the playback position TIME-STRING.
 
 See `org-timer-item' which this is based on."
-  (require 'org)
   (let ((itemp (org-in-item-p)) (pos (point)))
     (cond
      ;; In a timer list, insert with `org-list-insert-item',
@@ -200,7 +190,7 @@ See `org-timer-item' which this is based on."
         (looking-at org-list-full-item-re)
         (goto-char (match-end 0))))
      ;; In a list of another type, don't break anything: throw an error.
-     (itemp (goto-char pos) (error "This is not a timer list"))
+     (itemp (goto-char pos) (user-error "This is not a timer list"))
      ;; Else, start a new list.
      (t
       (beginning-of-line)
@@ -213,12 +203,11 @@ See `org-timer-item' which this is based on."
 This can be used with the `org-open-at-point-functions' hook."
   (interactive)
   (save-excursion
-    (skip-chars-backward -position-skipchars (point-at-bol))
-    (when (looking-at -position-regexp)
-      (let ((hours (string-to-number (match-string 1)))
-            (mins (string-to-number (match-string 2)))
-            (secs (string-to-number (match-string 3))))
-        (-enqueue `("seek" ,(+ (* 3600 hours) (* 60 mins) secs) "absolute") #'ignore)))))
+    (skip-chars-backward ":[:digit:]" (point-at-bol))
+    (when (looking-at "[0-9]+:[0-9]\\{2\\}:[0-9]\\{2\\}")
+      (let ((secs (org-timer-hms-to-secs (match-string 0))))
+        (when (> secs 0)
+          (-enqueue `("seek" ,secs "absolute") #'ignore))))))
 )
 
 (provide 'mpv)
