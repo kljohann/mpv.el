@@ -27,6 +27,8 @@
 
 (eval-when-compile (require 'names))
 
+(require 'tq)
+(require 'dash)
 (require 'json)
 
 (define-namespace mpv-mode-
@@ -42,9 +44,7 @@
   (and -process (eq (process-status -process) 'run)))
 
 (defun -start (&rest args)
-  (when (-alive-p)
-    (kill-process -process))
-
+  (-kill)
   (let ((socket (make-temp-name
                  (expand-file-name "mpv-mode-" temporary-file-directory))))
     (setq -process
@@ -56,7 +56,65 @@
     (setq -queue (tq-create
                   (make-network-process :name "mpv-socket"
                                         :family 'local
-                                        :service socket)))))
+                                        :service socket)))
+    (set-process-filter
+     (tq-process -queue)
+     (lambda (_proc string)
+       (-tq-filter -queue string)))
+    t))
+
+(defun -kill ()
+  (when (-alive-p)
+    (kill-process -process))
+  (when -queue
+    (tq-close -queue))
+  (setq -process nil)
+  (setq -queue nil))
+
+(defun -enqueue (command fn &optional delay-command)
+  "Add COMMAND to the transaction queue.
+
+FN will be called with the corresponding answer.
+If DELAY-QUESTION is non-nil, delay sending this question until
+the process has finished replying to any previous questions.
+This produces more reliable results with some processes.
+
+Note that we do not use the regexp and closure arguments of
+`-tq-enque', see our custom implementation of `tq-process-buffer'
+below."
+  (tq-enqueue
+   -queue
+   (concat (json-encode `((command . ,command))) "\n")
+   "" nil fn delay-command))
+
+(defun -tq-filter (tq string)
+  (let ((buffer (tq-buffer tq)))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (goto-char (point-max))
+        (insert string)
+        (-tq-process-buffer tq)))))
+
+(defun -tq-process-buffer (tq)
+  "Check TQ's buffer for a JSON response.
+
+Replacement for `tq-process-buffer' that ignores regular expressions
+\(answers are always passed to the first handler in the queue) and
+drops unsolicited event messages."
+  (goto-char (point-min))
+  (-when-let (answer (ignore-errors (json-read)))
+    (delete-region (point-min) (point))
+    ;; event messages have form {"event": ...}
+    ;; answers have form {"error": ..., "data": ...}
+    ;; FIXME: handle errors?
+    (unless (assoc 'event answer)
+      (unwind-protect
+          (condition-case nil
+              (funcall (tq-queue-head-fn tq)
+                       (cdr (assoc 'data answer)))
+            (error nil))
+        (tq-queue-pop tq)))
+    (-tq-process-buffer tq)))
 )
 
 (provide 'mpv-mode)
