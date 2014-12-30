@@ -83,6 +83,10 @@
   (setq -process nil)
   (setq -queue nil))
 
+(defun play (path)
+  (interactive "fFile: ")
+  (-start path))
+
 (defun -enqueue (command fn &optional delay-command)
   "Add COMMAND to the transaction queue.
 
@@ -98,7 +102,8 @@ below."
     (tq-enqueue
      -queue
      (concat (json-encode `((command . ,command))) "\n")
-     "" nil fn delay-command)))
+     "" nil fn delay-command)
+    t))
 
 (defun -tq-filter (tq string)
   (let ((buffer (tq-buffer tq)))
@@ -178,7 +183,9 @@ See `org-timer-item' which this is based on."
       (insert  (concat "- " time-string " :: "))))))
 
 (defun seek-to-position-at-point ()
-  "Jump to playback position as inserted by `mpv-mode-insert-playback-position'."
+  "Jump to playback position as inserted by `mpv-insert-playback-position'.
+
+This can be used with the `org-open-at-point-functions' hook."
   (interactive)
   (save-excursion
     (skip-chars-backward -position-skipchars (point-at-bol))
