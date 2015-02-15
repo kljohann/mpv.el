@@ -1,10 +1,10 @@
-;;; mpv.el --- control mpv for easy note-taking  -*- lexical-binding: t; -*-
+;;; mpv.el --- control mpv for easy note-taking
 
 ;; Copyright (C) 2014  Johann Klähn
 
 ;; Author: Johann Klähn <kljohann@gmail.com>
 ;; Keywords: tools, multimedia
-;; Package-Requires: ((json "1.3") (org "8.0") (cl-lib "0.5"))
+;; Package-Requires: ((cl-lib "0.5") (json "1.3") (names "0.5.4") (org "8.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
