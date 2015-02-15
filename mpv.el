@@ -4,7 +4,7 @@
 
 ;; Author: Johann Klähn <kljohann@gmail.com>
 ;; Keywords: tools, multimedia
-;; Package-Requires: ((json "1.3") (org "8.0"))
+;; Package-Requires: ((json "1.3") (org "8.0") (cl-lib "0.5"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@
 
 (eval-when-compile (require 'names))
 
+(require 'cl-lib)
 (require 'json)
 (require 'org)
 (require 'org-timer)
@@ -49,6 +50,13 @@
 (defcustom executable "mpv"
   "Name or path to the mpv executable."
   :type 'file)
+
+(defcustom speed-step 1.10
+  "Scale factor used when adjusting playback speed."
+  :type 'number)
+
+(defcustom seek-step 5
+  "Step size in seconds used when seeking.")
 
 (defvar -process nil)
 (defvar -queue nil)
@@ -101,7 +109,7 @@ below."
     t))
 
 (defun -tq-filter (tq string)
-"Append to the queue's buffer and process the new data.
+  "Append to the queue's buffer and process the new data.
 
 TQ is a transaction queue created by `tq-create'.
 STRING is the data fragment received from the process.
@@ -138,6 +146,7 @@ drops unsolicited event messages."
           (tq-queue-pop tq)))
       (-tq-process-buffer tq))))
 
+:autoload
 (defun play (path)
   "Start an mpv process playing the file at PATH.
 
@@ -208,6 +217,49 @@ This can be used with the `org-open-at-point-functions' hook."
       (let ((secs (org-timer-hms-to-secs (match-string 0))))
         (when (> secs 0)
           (-enqueue `("seek" ,secs "absolute") #'ignore))))))
+
+(defun speed-set (factor)
+  "Set playback speed to FACTOR."
+  (interactive "nFactor: ")
+  (-enqueue `("multiply" "speed" ,(abs factor)) #'ignore))
+
+(defun speed-increase (steps)
+  "Increase playback speed by STEPS factors of `mpv-speed-step'."
+  (interactive "p")
+  (let ((factor (* (abs steps)
+                   (if (> steps 0)
+                       mpv-speed-step
+                     (/ 1 mpv-speed-step)))))
+    (-enqueue `("multiply" "speed" ,factor) #'ignore)))
+
+(defun speed-decrease (steps)
+  "Decrease playback speed by STEPS factors of `mpv-speed-step'."
+  (interactive "p")
+  (speed-increase (- steps)))
+
+(defun -raw-prefix-to-seconds (arg)
+  "Convert raw prefix argument ARG to seconds using `mpv-seek-step'.
+Numeric arguments will be treated as seconds, repeated use
+\\[universal-argument] will be multiplied with `mpv-seek-step'."
+  (if (numberp arg)
+      arg
+    (* mpv-seek-step
+       (cl-signum (or (car arg) 1))
+       (log (abs (or (car arg) 4)) 4))))
+
+(defun seek-forward (arg)
+  "Seek forward ARG seconds.
+If ARG is numeric, it is used as the number of seconds.  Else each use
+of \\[universal-argument] will add another `mpv-seek-step' seconds."
+  (interactive "P")
+  (-enqueue `("seek" ,(-raw-prefix-to-seconds arg) "relative") #'ignore))
+
+(defun seek-backward (arg)
+  "Seek backward ARG seconds.
+If ARG is numeric, it is used as the number of seconds.  Else each use
+of \\[universal-argument] will add another `mpv-seek-step' seconds."
+  (interactive "P")
+  (seek-forward (- (-raw-prefix-to-seconds arg))))
 )
 
 (provide 'mpv)
