@@ -3,6 +3,8 @@
 ;; Copyright (C) 2014  Johann Klähn
 
 ;; Author: Johann Klähn <kljohann@gmail.com>
+;; URL: https://github.com/kljohann/mpv.el
+;; Version: 0.1.0
 ;; Keywords: tools, multimedia
 ;; Package-Requires: ((cl-lib "0.5") (emacs "24") (json "1.3") (names "0.5.4") (org "8.0"))
 

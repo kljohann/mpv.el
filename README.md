@@ -1,31 +1,28 @@
-# mpv.el
+# mpv.el [![MELPA](http://melpa.org/packages/mpv-badge.svg)](http://melpa.org/#/mpv)
+*control mpv for easy note-taking*
 
 This package is a potpourri of helper functions to control a [mpv][]
-process via its IPC interface.  After installing you might want to add
-some of the following to your init file to ease transcription of videos
-using Org-mode:
+process via its IPC interface.
 
-```emacs
-(defun org-timer-item--mpv-insert-playback-position (fun &rest args)
-  "When no org timer is running but mpv is alive, insert playback position."
-  (if (and
-       (not org-timer-start-time)
-       (mpv-live-p))
-      (mpv-insert-playback-position t)
-    (apply fun args)))
-(advice-add 'org-timer-item :around
-            #'org-timer-item--mpv-insert-playback-position)
+## Installation
 
-(org-add-link-type "mpv" #'mpv-play)
-(defun org-mpv-complete-link (&optional arg)
-  (replace-regexp-in-string
-   "file:" "mpv:"
-   (org-file-complete-link arg)
-   t t))
-(add-hook 'org-open-at-point-functions #'mpv-seek-to-position-at-point)
-```
+mpv.el is available on [MELPA][]:
+
+    M-x package-install mpv
+
+To start playback, have a look at `mpv-play`.
+Among others, mpv.el provides
+
+- `mpv-pause`
+- `mpv-kill`
+- `mpv-seek-forward` / `mpv-seek-backward`
+- `mpv-speed-increase` / `mpv-speed-decrease`
+- `mpv-insert-playback-position`
+- `mpv-seek-to-position-at-point`
 
 Apart from that, just have a look at the interactive functions in
-[mpv.el](mpv.el).
+[mpv.el](mpv.el) or the [wiki][] for tips on configuration.
 
 [mpv]: http://mpv.io/
+[MELPA]: http://melpa.milkbox.net
+[wiki]: https://github.com/kljohann/mpv.el/wiki
