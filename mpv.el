@@ -197,6 +197,7 @@ See `mpv-start' if you need to pass further arguments and
   (interactive "fFile: ")
   (start path))
 
+:autoload
 (defun kill ()
   "Kill the mpv process."
   (interactive)
@@ -207,11 +208,13 @@ See `mpv-start' if you need to pass further arguments and
   (setq -process nil)
   (setq -queue nil))
 
+:autoload
 (defun pause ()
   "Pause or unpause playback."
   (interactive)
   (-enqueue '("cycle" "pause") #'ignore))
 
+:autoload
 (defun insert-playback-position (&optional arg)
   "Insert the current playback position at point.
 
@@ -249,6 +252,7 @@ See `org-timer-item' which this is based on."
       (org-indent-line)
       (insert  (concat "- " time-string " :: "))))))
 
+:autoload
 (defun seek-to-position-at-point ()
   "Jump to playback position as inserted by `mpv-insert-playback-position'.
 
@@ -261,11 +265,13 @@ This can be used with the `org-open-at-point-functions' hook."
         (when (> secs 0)
           (-enqueue `("seek" ,secs "absolute") #'ignore))))))
 
+:autoload
 (defun speed-set (factor)
   "Set playback speed to FACTOR."
   (interactive "nFactor: ")
   (-enqueue `("set" "speed" ,(abs factor)) #'ignore))
 
+:autoload
 (defun speed-increase (steps)
   "Increase playback speed by STEPS factors of `mpv-speed-step'."
   (interactive "p")
@@ -275,6 +281,7 @@ This can be used with the `org-open-at-point-functions' hook."
                      (/ 1 mpv-speed-step)))))
     (-enqueue `("multiply" "speed" ,factor) #'ignore)))
 
+:autoload
 (defun speed-decrease (steps)
   "Decrease playback speed by STEPS factors of `mpv-speed-step'."
   (interactive "p")
@@ -290,6 +297,7 @@ Numeric arguments will be treated as seconds, repeated use
        (cl-signum (or (car arg) 1))
        (log (abs (or (car arg) 4)) 4))))
 
+:autoload
 (defun seek-forward (arg)
   "Seek forward ARG seconds.
 If ARG is numeric, it is used as the number of seconds.  Else each use
@@ -297,6 +305,7 @@ of \\[universal-argument] will add another `mpv-seek-step' seconds."
   (interactive "P")
   (-enqueue `("seek" ,(-raw-prefix-to-seconds arg) "relative") #'ignore))
 
+:autoload
 (defun seek-backward (arg)
   "Seek backward ARG seconds.
 If ARG is numeric, it is used as the number of seconds.  Else each use
