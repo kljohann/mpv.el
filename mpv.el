@@ -254,7 +254,7 @@ This can be used with the `org-open-at-point-functions' hook."
 (defun speed-set (factor)
   "Set playback speed to FACTOR."
   (interactive "nFactor: ")
-  (-enqueue `("multiply" "speed" ,(abs factor)) #'ignore))
+  (-enqueue `("set" "speed" ,(abs factor)) #'ignore))
 
 (defun speed-increase (steps)
   "Increase playback speed by STEPS factors of `mpv-speed-step'."
