@@ -43,6 +43,7 @@
 (require 'org-timer)
 (require 'tq)
 
+;;;###autoload
 (define-namespace mpv-
 :package mpv
 :group external
