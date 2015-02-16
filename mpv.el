@@ -55,6 +55,10 @@
   "Name or path to the mpv executable."
   :type 'file)
 
+(defcustom default-options nil
+  "List of default options to be passed to mpv."
+  :type '(repeat string))
+
 (defcustom speed-step 1.10
   "Scale factor used when adjusting playback speed."
   :type 'number)
@@ -73,14 +77,16 @@
   "Start an mpv process with the specified ARGS.
 
 If there already is an mpv process controlled by this Emacs instance,
-it will be killed."
+it will be killed.  Options specified in `mpv-default-options' will be
+prepended to ARGS."
   (kill)
   (let ((socket (make-temp-name
                  (expand-file-name "mpv-" temporary-file-directory))))
     (setq -process
           (apply #'start-process "mpv-player" nil executable
                  "--no-terminal"
-                 (concat "--input-unix-socket=" socket) args))
+                 (concat "--input-unix-socket=" socket)
+                 (append default-options args)))
     (set-process-query-on-exit-flag -process nil)
     (while (and (live-p) (not (file-exists-p socket)))
       (sleep-for 0.05))
@@ -154,7 +160,9 @@ drops unsolicited event messages."
 (defun play (path)
   "Start an mpv process playing the file at PATH.
 
-You can use this with `org-add-link-type' or `org-file-apps'."
+You can use this with `org-add-link-type' or `org-file-apps'.
+See `mpv-start' if you need to pass further arguments and
+`mpv-default-options' for default options."
   (interactive "fFile: ")
   (start path))
 
