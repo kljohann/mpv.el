@@ -72,6 +72,13 @@ The hook will be called with the parsed JSON message as its only an
 argument.  See \"List of events\" in the mpv man page."
   :type 'hook)
 
+(defcustom on-start-hook nil
+  "Hook to run when a new mpv process is started.
+The hook will be called with the arguments passed to `mpv-start'.")
+
+(defcustom on-exit-hook nil
+  "Hook to run when the mpv process dies.")
+
 (defvar -process nil)
 (defvar -queue nil)
 
@@ -94,6 +101,11 @@ prepended to ARGS."
                  (concat "--input-unix-socket=" socket)
                  (append default-options args)))
     (set-process-query-on-exit-flag -process nil)
+    (set-process-sentinel
+     -process
+     (lambda (process _event)
+       (when (memq (process-status process) '(exit signal))
+         (run-hooks 'mpv-on-exit-hook))))
     (while (and (live-p) (not (file-exists-p socket)))
       (sleep-for 0.05))
     (setq -queue (tq-create
@@ -104,6 +116,7 @@ prepended to ARGS."
      (tq-process -queue)
      (lambda (_proc string)
        (-tq-filter -queue string)))
+    (run-hook-with-args 'mpv-on-start-hook args)
     t))
 
 (defun -enqueue (command fn &optional delay-command)
