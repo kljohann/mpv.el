@@ -43,6 +43,9 @@
 (require 'org-timer)
 (require 'tq)
 
+(define-obsolete-function-alias 'mpv--start 'mpv-start "20150216")
+(define-obsolete-function-alias 'mpv--alive-p 'mpv-live-p "20150216")
+
 ;;;###autoload
 (define-namespace mpv-
 :package mpv
@@ -62,11 +65,11 @@
 (defvar -process nil)
 (defvar -queue nil)
 
-(defun -alive-p ()
-  "Return non-nil if an mpv process is running."
+(defun live-p ()
+  "Return non-nil if inferior mpv is running."
   (and -process (eq (process-status -process) 'run)))
 
-(defun -start (&rest args)
+(defun start (&rest args)
   "Start an mpv process with the specified ARGS.
 
 If there already is an mpv process controlled by this Emacs instance,
@@ -79,7 +82,7 @@ it will be killed."
                  "--no-terminal"
                  (concat "--input-unix-socket=" socket) args))
     (set-process-query-on-exit-flag -process nil)
-    (while (and (-alive-p) (not (file-exists-p socket)))
+    (while (and (live-p) (not (file-exists-p socket)))
       (sleep-for 0.05))
     (setq -queue (tq-create
                   (make-network-process :name "mpv-socket"
@@ -102,7 +105,7 @@ This produces more reliable results with some processes.
 Note that we do not use the regexp and closure arguments of
 `tq-enqueue', see our custom implementation of `tq-process-buffer'
 below."
-  (when (-alive-p)
+  (when (live-p)
     (tq-enqueue
      -queue
      (concat (json-encode `((command . ,command))) "\n")
@@ -153,14 +156,14 @@ drops unsolicited event messages."
 
 You can use this with `org-add-link-type' or `org-file-apps'."
   (interactive "fFile: ")
-  (-start path))
+  (start path))
 
 (defun kill ()
   "Kill the mpv process."
   (interactive)
   (when -queue
     (tq-close -queue))
-  (when (-alive-p)
+  (when (live-p)
     (kill-process -process))
   (setq -process nil)
   (setq -queue nil))

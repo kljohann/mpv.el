@@ -10,7 +10,7 @@ using Org-mode:
   "When no org timer is running but mpv is alive, insert playback position."
   (if (and
        (not org-timer-start-time)
-       (mpv--alive-p))
+       (mpv-live-p))
       (mpv-insert-playback-position t)
     (apply fun args)))
 (advice-add 'org-timer-item :around
