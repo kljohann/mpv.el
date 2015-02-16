@@ -66,6 +66,12 @@
 (defcustom seek-step 5
   "Step size in seconds used when seeking.")
 
+(defcustom on-event-hook nil
+  "Hook to run when an event message is received.
+The hook will be called with the parsed JSON message as its only an
+argument.  See \"List of events\" in the mpv man page."
+  :type 'hook)
+
 (defvar -process nil)
 (defvar -queue nil)
 
@@ -138,7 +144,7 @@ This is a verbatim copy of `tq-filter' that uses
 
 Replacement for `tq-process-buffer' that ignores regular expressions
 \(answers are always passed to the first handler in the queue) and
-drops unsolicited event messages."
+passes unsolicited event messages to `mpv-on-event-hook'."
   (goto-char (point-min))
   (skip-chars-forward "^{")
   (let ((answer (ignore-errors (json-read))))
@@ -147,13 +153,15 @@ drops unsolicited event messages."
       ;; event messages have form {"event": ...}
       ;; answers have form {"error": ..., "data": ...}
       ;; FIXME: handle errors?
-      (unless (or (assoc 'event answer) (tq-queue-empty tq))
+      (cond
+       ((assoc 'event answer)
+        (run-hook-with-args 'mpv-on-event-hook answer))
+       ((not (tq-queue-empty tq))
         (unwind-protect
-            ;; (condition-case nil
             (funcall (tq-queue-head-fn tq)
                      (cdr (assoc 'data answer)))
-              ;; (error nil))
-          (tq-queue-pop tq)))
+          (tq-queue-pop tq))))
+      ;; Recurse to check for further JSON messages.
       (-tq-process-buffer tq))))
 
 :autoload
