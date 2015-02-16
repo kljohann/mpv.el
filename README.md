@@ -1,4 +1,4 @@
-# mpv.el [![MELPA](http://melpa.org/packages/mpv-badge.svg)](http://melpa.org/#/mpv)
+# mpv.el [![MELPA Stable](http://stable.melpa.org/packages/mpv-badge.svg)](http://stable.melpa.org/#/mpv) [![MELPA](http://melpa.org/packages/mpv-badge.svg)](http://melpa.org/#/mpv)
 *control mpv for easy note-taking*
 
 This package is a potpourri of helper functions to control a [mpv][]
