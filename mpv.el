@@ -119,6 +119,14 @@ prepended to ARGS."
     (run-hook-with-args 'mpv-on-start-hook args)
     t))
 
+(defun -as-strings (command)
+  "Convert COMMAND to a list of strings."
+  (mapcar (lambda (arg)
+            (if (numberp arg)
+                (number-to-string arg)
+              arg))
+          command))
+
 (defun -enqueue (command fn &optional delay-command)
   "Add COMMAND to the transaction queue.
 
@@ -133,7 +141,7 @@ below."
   (when (live-p)
     (tq-enqueue
      -queue
-     (concat (json-encode `((command . ,command))) "\n")
+     (concat (json-encode `((command . ,(-as-strings command)))) "\n")
      "" nil fn delay-command)
     t))
 
