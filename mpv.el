@@ -195,7 +195,7 @@ You can use this with `org-add-link-type' or `org-file-apps'.
 See `mpv-start' if you need to pass further arguments and
 `mpv-default-options' for default options."
   (interactive "fFile: ")
-  (start path))
+  (start (expand-file-name path)))
 
 :autoload
 (defun kill ()
