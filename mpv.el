@@ -237,25 +237,12 @@ When called with a non-nil ARG, insert a timer list item like `org-timer-item'."
   "Insert a description-type item with the playback position TIME-STRING.
 
 See `org-timer-item' which this is based on."
-  (let ((itemp (org-in-item-p)) (pos (point)))
-    (cond
-     ;; In a timer list, insert with `org-list-insert-item',
-     ;; then fix the list.
-     ((and itemp (goto-char itemp) (org-at-item-timer-p))
-      (let* ((struct (org-list-struct))
-             (prevs (org-list-prevs-alist struct))
-             (s (concat time-string " :: ")))
-        (setq struct (org-list-insert-item pos struct prevs nil s))
-        (org-list-write-struct struct (org-list-parents-alist struct))
-        (looking-at org-list-full-item-re)
-        (goto-char (match-end 0))))
-     ;; In a list of another type, don't break anything: throw an error.
-     (itemp (goto-char pos) (user-error "This is not a timer list"))
-     ;; Else, start a new list.
-     (t
-      (beginning-of-line)
-      (org-indent-line)
-      (insert  (concat "- " time-string " :: "))))))
+  (cl-letf (((symbol-function 'org-timer)
+             (lambda (&optional _restart no-insert)
+               (funcall
+                (if no-insert #'identity #'insert)
+                (concat time-string " ")))))
+    (org-timer-item)))
 
 ;;;###autoload
 (defun mpv-seek-to-position-at-point ()
