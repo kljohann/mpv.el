@@ -1,12 +1,12 @@
 ;;; mpv.el --- control mpv for easy note-taking  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2014  Johann Klähn
+;; Copyright (C) 2014-2018  Johann Klähn
 
 ;; Author: Johann Klähn <kljohann@gmail.com>
 ;; URL: https://github.com/kljohann/mpv.el
 ;; Version: 0.1.0
 ;; Keywords: tools, multimedia
-;; Package-Requires: ((cl-lib "0.5") (emacs "24") (json "1.3") (names "0.5.4") (org "8.0"))
+;; Package-Requires: ((cl-lib "0.5") (emacs "24") (json "1.3") (org "8.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -37,91 +37,96 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'names))
-
 (require 'cl-lib)
 (require 'json)
 (require 'org)
 (require 'org-timer)
 (require 'tq)
 
-(define-obsolete-function-alias 'mpv--start 'mpv-start "20150216")
-(define-obsolete-function-alias 'mpv--alive-p 'mpv-live-p "20150216")
+(defgroup mpv nil
+  "Customization group for mpv."
+  :prefix "mpv-"
+  :group 'external)
 
-;;;###autoload
-(define-namespace mpv-
-:package mpv
-:group external
-
-(defcustom executable "mpv"
+(defcustom mpv-executable "mpv"
   "Name or path to the mpv executable."
-  :type 'file)
+  :type 'file
+  :group 'mpv)
 
-(defcustom default-options nil
+(defcustom mpv-default-options nil
   "List of default options to be passed to mpv."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'mpv)
 
-(defcustom speed-step 1.10
+(defcustom mpv-speed-step 1.10
   "Scale factor used when adjusting playback speed."
-  :type 'number)
+  :type 'number
+  :group 'mpv)
 
-(defcustom seek-step 5
-  "Step size in seconds used when seeking.")
+(defcustom mpv-seek-step 5
+  "Step size in seconds used when seeking."
+  :type 'number
+  :group 'mpv)
 
-(defcustom on-event-hook nil
+(defcustom mpv-on-event-hook nil
   "Hook to run when an event message is received.
 The hook will be called with the parsed JSON message as its only an
 argument.  See \"List of events\" in the mpv man page."
-  :type 'hook)
+  :type 'hook
+  :group 'mpv)
 
-(defcustom on-start-hook nil
+(defcustom mpv-on-start-hook nil
   "Hook to run when a new mpv process is started.
-The hook will be called with the arguments passed to `mpv-start'.")
+The hook will be called with the arguments passed to `mpv-start'."
+  :type 'hook
+  :group 'mpv)
 
-(defcustom on-exit-hook nil
-  "Hook to run when the mpv process dies.")
+(defcustom mpv-on-exit-hook nil
+  "Hook to run when the mpv process dies."
+  :type 'hook
+  :group 'mpv)
 
-(defvar -process nil)
-(defvar -queue nil)
+(defvar mpv--process nil)
+(defvar mpv--queue nil)
 
-(defun live-p ()
+(defun mpv-live-p ()
   "Return non-nil if inferior mpv is running."
-  (and -process (eq (process-status -process) 'run)))
+  (and mpv--process (eq (process-status mpv--process) 'run)))
 
-(defun start (&rest args)
+(defun mpv-start (&rest args)
   "Start an mpv process with the specified ARGS.
 
 If there already is an mpv process controlled by this Emacs instance,
 it will be killed.  Options specified in `mpv-default-options' will be
 prepended to ARGS."
-  (kill)
+  (mpv-kill)
   (let ((socket (make-temp-name
                  (expand-file-name "mpv-" temporary-file-directory))))
-    (setq -process
-          (apply #'start-process "mpv-player" nil executable
+    (setq mpv--process
+          (apply #'start-process "mpv-player" nil mpv-executable
                  "--no-terminal"
                  (concat "--input-unix-socket=" socket)
-                 (append default-options args)))
-    (set-process-query-on-exit-flag -process nil)
+                 (append mpv-default-options args)))
+    (set-process-query-on-exit-flag mpv--process nil)
     (set-process-sentinel
-     -process
+     mpv--process
      (lambda (process _event)
        (when (memq (process-status process) '(exit signal))
          (run-hooks 'mpv-on-exit-hook))))
-    (while (and (live-p) (not (file-exists-p socket)))
+    (while (and (mpv-live-p) (not (file-exists-p socket)))
       (sleep-for 0.05))
-    (setq -queue (tq-create
+    (setq mpv--queue (tq-create
                   (make-network-process :name "mpv-socket"
                                         :family 'local
                                         :service socket)))
     (set-process-filter
-     (tq-process -queue)
+     (tq-process mpv--queue)
      (lambda (_proc string)
-       (-tq-filter -queue string)))
+       (mpv--tq-filter mpv--queue string)))
     (run-hook-with-args 'mpv-on-start-hook args)
     t))
 
-(defun -as-strings (command)
+(defun mpv--as-strings (command)
   "Convert COMMAND to a list of strings."
   (mapcar (lambda (arg)
             (if (numberp arg)
@@ -129,7 +134,7 @@ prepended to ARGS."
               arg))
           command))
 
-(defun -enqueue (command fn &optional delay-command)
+(defun mpv--enqueue (command fn &optional delay-command)
   "Add COMMAND to the transaction queue.
 
 FN will be called with the corresponding answer.
@@ -140,14 +145,14 @@ This produces more reliable results with some processes.
 Note that we do not use the regexp and closure arguments of
 `tq-enqueue', see our custom implementation of `tq-process-buffer'
 below."
-  (when (live-p)
+  (when (mpv-live-p)
     (tq-enqueue
-     -queue
-     (concat (json-encode `((command . ,(-as-strings command)))) "\n")
+     mpv--queue
+     (concat (json-encode `((command . ,(mpv--as-strings command)))) "\n")
      "" nil fn delay-command)
     t))
 
-(defun -tq-filter (tq string)
+(defun mpv--tq-filter (tq string)
   "Append to the queue's buffer and process the new data.
 
 TQ is a transaction queue created by `tq-create'.
@@ -160,9 +165,9 @@ This is a verbatim copy of `tq-filter' that uses
       (with-current-buffer buffer
         (goto-char (point-max))
         (insert string)
-        (-tq-process-buffer tq)))))
+        (mpv--tq-process-buffer tq)))))
 
-(defun -tq-process-buffer (tq)
+(defun mpv--tq-process-buffer (tq)
   "Check TQ's buffer for a JSON response.
 
 Replacement for `tq-process-buffer' that ignores regular expressions
@@ -185,50 +190,50 @@ passes unsolicited event messages to `mpv-on-event-hook'."
                      (cdr (assoc 'data answer)))
           (tq-queue-pop tq))))
       ;; Recurse to check for further JSON messages.
-      (-tq-process-buffer tq))))
+      (mpv--tq-process-buffer tq))))
 
-:autoload
-(defun play (path)
+;;;###autoload
+(defun mpv-play (path)
   "Start an mpv process playing the file at PATH.
 
 You can use this with `org-add-link-type' or `org-file-apps'.
 See `mpv-start' if you need to pass further arguments and
 `mpv-default-options' for default options."
   (interactive "fFile: ")
-  (start (expand-file-name path)))
+  (mpv-start (expand-file-name path)))
 
-:autoload
-(defun kill ()
+;;;###autoload
+(defun mpv-kill ()
   "Kill the mpv process."
   (interactive)
-  (when -queue
-    (tq-close -queue))
-  (when (live-p)
-    (kill-process -process))
-  (setq -process nil)
-  (setq -queue nil))
+  (when mpv--queue
+    (tq-close mpv--queue))
+  (when (mpv-live-p)
+    (kill-process mpv--process))
+  (setq mpv--process nil)
+  (setq mpv--queue nil))
 
-:autoload
-(defun pause ()
+;;;###autoload
+(defun mpv-pause ()
   "Pause or unpause playback."
   (interactive)
-  (-enqueue '("cycle" "pause") #'ignore))
+  (mpv--enqueue '("cycle" "pause") #'ignore))
 
-:autoload
-(defun insert-playback-position (&optional arg)
+;;;###autoload
+(defun mpv-insert-playback-position (&optional arg)
   "Insert the current playback position at point.
 
 When called with a non-nil ARG, insert a timer list item like `org-timer-item'."
   (interactive "P")
   (let ((buffer (current-buffer)))
-    (-enqueue '("get_property" "playback-time")
+    (mpv--enqueue '("get_property" "playback-time")
               (lambda (time)
                 (with-current-buffer buffer
                   (funcall
-                   (if arg #'-position-insert-as-org-item #'insert)
+                   (if arg #'mpv--position-insert-as-org-item #'insert)
                    (org-timer-secs-to-hms (round time))))))))
 
-(defun -position-insert-as-org-item (time-string)
+(defun mpv--position-insert-as-org-item (time-string)
   "Insert a description-type item with the playback position TIME-STRING.
 
 See `org-timer-item' which this is based on."
@@ -252,8 +257,8 @@ See `org-timer-item' which this is based on."
       (org-indent-line)
       (insert  (concat "- " time-string " :: "))))))
 
-:autoload
-(defun seek-to-position-at-point ()
+;;;###autoload
+(defun mpv-seek-to-position-at-point ()
   "Jump to playback position as inserted by `mpv-insert-playback-position'.
 
 This can be used with the `org-open-at-point-functions' hook."
@@ -263,31 +268,31 @@ This can be used with the `org-open-at-point-functions' hook."
     (when (looking-at "[0-9]+:[0-9]\\{2\\}:[0-9]\\{2\\}")
       (let ((secs (org-timer-hms-to-secs (match-string 0))))
         (when (> secs 0)
-          (-enqueue `("seek" ,secs "absolute") #'ignore))))))
+          (mpv--enqueue `("seek" ,secs "absolute") #'ignore))))))
 
-:autoload
-(defun speed-set (factor)
+;;;###autoload
+(defun mpv-speed-set (factor)
   "Set playback speed to FACTOR."
   (interactive "nFactor: ")
-  (-enqueue `("set" "speed" ,(abs factor)) #'ignore))
+  (mpv--enqueue `("set" "speed" ,(abs factor)) #'ignore))
 
-:autoload
-(defun speed-increase (steps)
+;;;###autoload
+(defun mpv-speed-increase (steps)
   "Increase playback speed by STEPS factors of `mpv-speed-step'."
   (interactive "p")
   (let ((factor (* (abs steps)
                    (if (> steps 0)
                        mpv-speed-step
                      (/ 1 mpv-speed-step)))))
-    (-enqueue `("multiply" "speed" ,factor) #'ignore)))
+    (mpv--enqueue `("multiply" "speed" ,factor) #'ignore)))
 
-:autoload
-(defun speed-decrease (steps)
+;;;###autoload
+(defun mpv-speed-decrease (steps)
   "Decrease playback speed by STEPS factors of `mpv-speed-step'."
   (interactive "p")
-  (speed-increase (- steps)))
+  (mpv-speed-increase (- steps)))
 
-(defun -raw-prefix-to-seconds (arg)
+(defun mpv--raw-prefix-to-seconds (arg)
   "Convert raw prefix argument ARG to seconds using `mpv-seek-step'.
 Numeric arguments will be treated as seconds, repeated use
 \\[universal-argument] will be multiplied with `mpv-seek-step'."
@@ -297,22 +302,21 @@ Numeric arguments will be treated as seconds, repeated use
        (cl-signum (or (car arg) 1))
        (log (abs (or (car arg) 4)) 4))))
 
-:autoload
-(defun seek-forward (arg)
+;;;###autoload
+(defun mpv-seek-forward (arg)
   "Seek forward ARG seconds.
 If ARG is numeric, it is used as the number of seconds.  Else each use
 of \\[universal-argument] will add another `mpv-seek-step' seconds."
   (interactive "P")
-  (-enqueue `("seek" ,(-raw-prefix-to-seconds arg) "relative") #'ignore))
+  (mpv--enqueue `("seek" ,(mpv--raw-prefix-to-seconds arg) "relative") #'ignore))
 
-:autoload
-(defun seek-backward (arg)
+;;;###autoload
+(defun mpv-seek-backward (arg)
   "Seek backward ARG seconds.
 If ARG is numeric, it is used as the number of seconds.  Else each use
 of \\[universal-argument] will add another `mpv-seek-step' seconds."
   (interactive "P")
-  (seek-forward (- (-raw-prefix-to-seconds arg))))
-)
+  (mpv-seek-forward (- (mpv--raw-prefix-to-seconds arg))))
 
 (provide 'mpv)
 ;;; mpv.el ends here
