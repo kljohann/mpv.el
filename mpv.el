@@ -112,6 +112,9 @@ prepended to ARGS."
      mpv--process
      (lambda (process _event)
        (when (memq (process-status process) '(exit signal))
+         (mpv-kill)
+         (when (file-exists-p socket)
+           (with-demoted-errors (delete-file socket)))
          (run-hooks 'mpv-on-exit-hook))))
     (while (and (mpv-live-p) (not (file-exists-p socket)))
       (sleep-for 0.05))
