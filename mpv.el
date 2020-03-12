@@ -155,6 +155,25 @@ below."
      "" nil fn delay-command)
     t))
 
+(defun mpv-run-command (command &rest arguments)
+  "Send a COMMAND to mpv, passing the remaining ARGUMENTS.
+Block while waiting for the response."
+  (when (mpv-live-p)
+    (let* ((response
+            (cl-block mpv-run-command-wait-for-response
+              (mpv--enqueue
+               (cons command arguments)
+               (lambda (response)
+                 (cl-return-from mpv-run-command-wait-for-response
+                   response)))
+              (while (mpv-live-p)
+                (sleep-for 0.05))))
+           (status (alist-get 'error response))
+           (data (alist-get 'data response)))
+    (unless (string-equal status "success")
+      (error "`%s' failed: %s" command status))
+    data)))
+
 (defun mpv--tq-filter (tq string)
   "Append to the queue's buffer and process the new data.
 
@@ -183,14 +202,12 @@ passes unsolicited event messages to `mpv-on-event-hook'."
       (delete-region (point-min) (point))
       ;; event messages have form {"event": ...}
       ;; answers have form {"error": ..., "data": ...}
-      ;; FIXME: handle errors?
       (cond
        ((assoc 'event answer)
         (run-hook-with-args 'mpv-on-event-hook answer))
        ((not (tq-queue-empty tq))
         (unwind-protect
-            (funcall (tq-queue-head-fn tq)
-                     (cdr (assoc 'data answer)))
+            (funcall (tq-queue-head-fn tq) answer)
           (tq-queue-pop tq))))
       ;; Recurse to check for further JSON messages.
       (mpv--tq-process-buffer tq))))
@@ -228,13 +245,10 @@ See `mpv-start' if you need to pass further arguments and
 
 When called with a non-nil ARG, insert a timer list item like `org-timer-item'."
   (interactive "P")
-  (let ((buffer (current-buffer)))
-    (mpv--enqueue '("get_property" "playback-time")
-              (lambda (time)
-                (with-current-buffer buffer
-                  (funcall
-                   (if arg #'mpv--position-insert-as-org-item #'insert)
-                   (org-timer-secs-to-hms (round time))))))))
+  (let ((time (mpv-run-command "get_property" "playback-time")))
+    (funcall
+     (if arg #'mpv--position-insert-as-org-item #'insert)
+     (org-timer-secs-to-hms (round time)))))
 
 (defun mpv--position-insert-as-org-item (time-string)
   "Insert a description-type item with the playback position TIME-STRING.
