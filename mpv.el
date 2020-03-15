@@ -292,7 +292,7 @@ This can be used with the `org-open-at-point-functions' hook."
     (when (looking-at "[0-9]+:[0-9]\\{2\\}:[0-9]\\{2\\}")
       (let ((secs (org-timer-hms-to-secs (match-string 0))))
         (when (> secs 0)
-          (mpv--enqueue `("seek" ,secs "absolute") #'ignore))))))
+          (mpv-seek secs))))))
 
 ;;;###autoload
 (defun mpv-speed-set (factor)
@@ -327,6 +327,13 @@ Numeric arguments will be treated as seconds, repeated use
        (log (abs (or (car arg) 4)) 4))))
 
 ;;;###autoload
+(defun mpv-seek (seconds)
+  "Seek to the given (absolute) time in SECONDS.
+A negative value is interpreted relative to the end of the file."
+  (interactive "nPosition in seconds: ")
+  (mpv--enqueue `("seek" ,seconds "absolute") #'ignore))
+
+;;;###autoload
 (defun mpv-seek-forward (arg)
   "Seek forward ARG seconds.
 If ARG is numeric, it is used as the number of seconds.  Else each use
@@ -341,6 +348,12 @@ If ARG is numeric, it is used as the number of seconds.  Else each use
 of \\[universal-argument] will add another `mpv-seek-step' seconds."
   (interactive "P")
   (mpv-seek-forward (- (mpv--raw-prefix-to-seconds arg))))
+
+;;;###autoload
+(defun mpv-revert-seek ()
+  "Undo the previous seek command."
+  (interactive)
+  (mpv--enqueue '("revert-seek") #'ignore))
 
 (provide 'mpv)
 ;;; mpv.el ends here
