@@ -239,13 +239,33 @@ See `mpv-start' if you need to pass further arguments and
   (interactive)
   (mpv--enqueue '("cycle" "pause") #'ignore))
 
+(defun mpv-get-property (property)
+  "Return the value of the given PROPERTY."
+  (mpv-run-command "get_property" property))
+
+(defun mpv-set-property (property value)
+  "Set the given PROPERTY to VALUE."
+  (mpv-run-command "set_property" property value))
+
+(defun mpv-cycle-property (property)
+  "Cycle the given PROPERTY."
+  (mpv-run-command "cycle" property))
+
+(defun mpv-get-playback-position ()
+  "Return the current playback position in seconds."
+  (mpv-get-property "playback-time"))
+
+(defun mpv-get-duration ()
+  "Return the estimated total duration of the current file in seconds."
+  (mpv-get-property "duration"))
+
 ;;;###autoload
 (defun mpv-insert-playback-position (&optional arg)
   "Insert the current playback position at point.
 
 When called with a non-nil ARG, insert a timer list item like `org-timer-item'."
   (interactive "P")
-  (let ((time (mpv-run-command "get_property" "playback-time")))
+  (let ((time (mpv-get-playback-position)))
     (funcall
      (if arg #'mpv--position-insert-as-org-item #'insert)
      (org-timer-secs-to-hms (round time)))))
