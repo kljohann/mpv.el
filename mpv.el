@@ -116,8 +116,11 @@ prepended to ARGS."
          (when (file-exists-p socket)
            (with-demoted-errors (delete-file socket)))
          (run-hooks 'mpv-on-exit-hook))))
-    (while (and (mpv-live-p) (not (file-exists-p socket)))
-      (sleep-for 0.05))
+    (with-timeout
+        (0.5 (mpv-kill)
+             (error "Failed to connect to mpv"))
+      (while (not (file-exists-p socket))
+        (sleep-for 0.05)))
     (setq mpv--queue (tq-create
                   (make-network-process :name "mpv-socket"
                                         :family 'local
@@ -230,6 +233,10 @@ See `mpv-start' if you need to pass further arguments and
     (tq-close mpv--queue))
   (when (mpv-live-p)
     (kill-process mpv--process))
+  (with-timeout
+      (0.5 (error "Failed to kill mpv"))
+    (while (mpv-live-p)
+      (sleep-for 0.05)))
   (setq mpv--process nil)
   (setq mpv--queue nil))
 
