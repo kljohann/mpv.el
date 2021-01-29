@@ -215,6 +215,9 @@ passes unsolicited event messages to `mpv-on-event-hook'."
       ;; Recurse to check for further JSON messages.
       (mpv--tq-process-buffer tq))))
 
+(defvar mpv-file ""
+  "A variable to store mpv playing file path.")
+
 ;;;###autoload
 (defun mpv-play (path)
   "Start an mpv process playing the file at PATH.
@@ -223,7 +226,8 @@ You can use this with `org-add-link-type' or `org-file-apps'.
 See `mpv-start' if you need to pass further arguments and
 `mpv-default-options' for default options."
   (interactive "fFile: ")
-  (mpv-start (expand-file-name path)))
+  (setq mpv-file (expand-file-name path))
+  (mpv-start mpv-file))
 
 ;;;###autoload
 (defun mpv-kill ()
@@ -361,6 +365,40 @@ of \\[universal-argument] will add another `mpv-seek-step' seconds."
   "Undo the previous seek command."
   (interactive)
   (mpv--enqueue '("revert-seek") #'ignore))
+
+;;===============================================================================
+;;; Org Mode mpv: link type support.
+
+;;; [[video:/path/to/video_file.mp4::00:12:34]]
+(defun org-mpv-open (path _)
+  (if (string-match-p "::" path)
+      (let* ((list (split-string path "::"))
+             (file (car list))
+             (timestamp (cdr list)))
+        (mpv-play file)
+        (sleep-for 0.05)
+        (mpv-seek timestamp))
+    (mpv-play path)))
+
+(defun org-mpv-store ()
+  (when (and (mpv-live-p) (process-live-p mpv--process))
+    (let ((timestamp (org-timer-secs-to-hms (round (mpv-get-playback-position)))))
+      (org-link-store-props
+       :type "video"
+       :link (format "video:%s::%s" mpv-file timestamp)
+       :description (format "Seek at timestamp %s on video %s"
+                            timestamp (file-name-nondirectory mpv-file))))))
+
+(defun org-mpv-complete (&optional arg)
+  (replace-regexp-in-string
+   "file:" "video:"
+   (org-file-complete-link arg)
+   t t))
+
+(org-link-set-parameters "video"
+                         :follow #'org-mpv-open
+                         :store #'org-mpv-store
+                         :complete #'org-mpv-complete)
 
 (provide 'mpv)
 ;;; mpv.el ends here
