@@ -101,7 +101,7 @@ prepended to ARGS."
     (setq mpv--process
           (apply #'start-process "mpv-player" nil mpv-executable
                  "--no-terminal"
-                 (concat "--input-unix-socket=" socket)
+                 (concat "--input-ipc-server=" socket)
                  (append mpv-default-options args)))
     (set-process-query-on-exit-flag mpv--process nil)
     (set-process-sentinel
