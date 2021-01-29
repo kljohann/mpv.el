@@ -291,7 +291,7 @@ This can be used with the `org-open-at-point-functions' hook."
     (skip-chars-backward ":[:digit:]" (point-at-bol))
     (when (looking-at "[0-9]+:[0-9]\\{2\\}:[0-9]\\{2\\}")
       (let ((secs (org-timer-hms-to-secs (match-string 0))))
-        (when (> secs 0)
+        (when (>= secs 0)
           (mpv-seek secs))))))
 
 ;;;###autoload
