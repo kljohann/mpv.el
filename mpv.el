@@ -362,5 +362,14 @@ of \\[universal-argument] will add another `mpv-seek-step' seconds."
   (interactive)
   (mpv--enqueue '("revert-seek") #'ignore))
 
+;;;###autoload
+(defun mpv-version ()
+  "Return mpv version."
+  (interactive)
+  (let ((version (cadr (split-string (car (process-lines "mpv" "--version"))))))
+    (prog1 version
+      (if (called-interactively-p 'interactive)
+	  (message "%s" version)))))
+
 (provide 'mpv)
 ;;; mpv.el ends here
