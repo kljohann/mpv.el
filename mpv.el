@@ -364,12 +364,14 @@ of \\[universal-argument] will add another `mpv-seek-step' seconds."
 
 ;;;###autoload
 (defun mpv-version ()
-  "Return mpv version."
+  "Return the mpv version string.
+When called interactively, also show a more verbose version in
+the echo area."
   (interactive)
-  (let ((version (cadr (split-string (car (process-lines "mpv" "--version"))))))
+  (let ((version (cadr (split-string (car (process-lines mpv-executable "--version"))))))
     (prog1 version
       (if (called-interactively-p 'interactive)
-	  (message "%s" version)))))
+	  (message "mpv %s" version)))))
 
 (provide 'mpv)
 ;;; mpv.el ends here
