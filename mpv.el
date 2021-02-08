@@ -373,5 +373,37 @@ the echo area."
       (if (called-interactively-p 'interactive)
 	  (message "mpv %s" version)))))
 
+;;;###autoload
+(defun mpv-playlist-play-index (pos)
+  "Start (or restart) playback of the given playlist index.
+
+This function provides a backward compatible wrapper of the mpv
+command playlist-play-index which has been introduced in mpv
+version 0.33.
+
+The value of POS can be either
+- a 0-based positive number: the entry of index POS will be played (or replayed
+if it corresponds to the current playlist entry);
+- \"current\": the current playlist entry will be played again;
+- \"none\": playback is stopped.
+
+For more information, see the documentation:
+https://mpv.io/manual/master/#command-interface-playlist-play-index"
+  (if (version<= "0.33" (mpv-version))
+      (mpv-run-command "playlist-play-index" pos)
+    (let ((cur (mpv-get-property "playlist-pos")))
+      (pcase pos
+	("current" (mpv-seek 0))
+	((and (pred numberp) (pred (= cur))) (mpv-seek 0))
+	("none" (mpv-set-property "pause" "no"))
+	((and (pred numberp) (pred (<= 0)))
+	 (cl-loop repeat (abs (- pos cur))
+		  do (sleep-for 0.10)
+		  if (> cur pos) do
+		  (mpv-run-command "playlist-prev")
+		  else do
+		  (mpv-run-command "playlist-next")))
+	(_ (error "`playlist-play-index' failed: invalid parameter"))))))
+
 (provide 'mpv)
 ;;; mpv.el ends here
