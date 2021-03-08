@@ -38,6 +38,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'url)
 (require 'json)
 (require 'org)
 (require 'org-timer)
@@ -122,9 +123,9 @@ prepended to ARGS."
       (while (not (file-exists-p socket))
         (sleep-for 0.05)))
     (setq mpv--queue (tq-create
-                  (make-network-process :name "mpv-socket"
-                                        :family 'local
-                                        :service socket)))
+                      (make-network-process :name "mpv-socket"
+                                            :family 'local
+                                            :service socket)))
     (set-process-filter
      (tq-process mpv--queue)
      (lambda (_proc string)
@@ -173,9 +174,9 @@ Block while waiting for the response."
                 (sleep-for 0.05))))
            (status (alist-get 'error response))
            (data (alist-get 'data response)))
-    (unless (string-equal status "success")
-      (error "`%s' failed: %s" command status))
-    data)))
+      (unless (string-equal status "success")
+        (error "`%s' failed: %s" command status))
+      data)))
 
 (defun mpv--tq-filter (tq string)
   "Append to the queue's buffer and process the new data.
@@ -215,15 +216,25 @@ passes unsolicited event messages to `mpv-on-event-hook'."
       ;; Recurse to check for further JSON messages.
       (mpv--tq-process-buffer tq))))
 
+(defun mpv--url-p (uri)
+  "Return if URI is an HTTP(S) URL."
+  (member (url-type (url-generic-parse-url uri)) '("http" "https")))
+
 ;;;###autoload
-(defun mpv-play (path)
-  "Start an mpv process playing the file at PATH.
+(defun mpv-play (arg)
+  "Start an mpv process playing the file at ARG.
+
+If ARG is a valid HTTP(S) url, this will attempt to open the url as a stream.
+If ARG is a valid filepath, it will play the local video file.
 
 You can use this with `org-add-link-type' or `org-file-apps'.
 See `mpv-start' if you need to pass further arguments and
 `mpv-default-options' for default options."
-  (interactive "fFile: ")
-  (mpv-start (expand-file-name path)))
+  (interactive
+   (let ((url-handler-mode +1))
+     (list (read-file-name "File: " nil default-directory (confirm-nonexistent-file-or-buffer)))))
+  (let ((path (if (mpv--url-p arg) arg (unless (file-name-absolute-p arg) (expand-file-name arg)))))
+    (mpv-start path)))
 
 ;;;###autoload
 (defun mpv-kill ()
@@ -371,7 +382,7 @@ the echo area."
   (let ((version (cadr (split-string (car (process-lines mpv-executable "--version"))))))
     (prog1 version
       (if (called-interactively-p 'interactive)
-	  (message "mpv %s" version)))))
+	      (message "mpv %s" version)))))
 
 (provide 'mpv)
 ;;; mpv.el ends here
