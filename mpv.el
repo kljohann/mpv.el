@@ -220,18 +220,11 @@ passes unsolicited event messages to `mpv-on-event-hook'."
   "Return if URI is an HTTP(S) URL."
   (member (url-type (url-generic-parse-url uri)) '("http" "https")))
 
-(defun mpv--url-parse-header-at-point ()
-  "Parse the first header line such as \"HTTP/1.1 200 OK\"."
-  (when (re-search-forward "\\=[ \t\n]*HTTP/\\([0-9\\.]+\\) +\\([0-9]+\\)" nil t)
-    (list :version (match-string 1)
-          :code (string-to-number (match-string 2)))))
-
 (defun mpv--url-reachable-p (url)
   "Test if the given URL is reachable with 2xx status code."
   (condition-case _
       (with-current-buffer (url-retrieve-synchronously url nil nil 5)
-        (goto-char (point-min))
-        (let ((status (plist-get (mpv--url-parse-header-at-point) :code)))
+        (let ((status (url-http-symbol-value-in-buffer 'url-http-response-status (current-buffer))))
           (and (>= status 200) (< status 300))))
     ((debug error) (error "Could not successfully reach URL: %s" url))))
 
