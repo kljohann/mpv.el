@@ -382,8 +382,8 @@ command playlist-play-index which has been introduced in mpv
 version 0.33.
 
 The value of POS can be either
-- a 0-based positive number: the entry of index POS will be played (or replayed
-if it corresponds to the current playlist entry);
+- a 0-based positive number: the entry at index POS will be played (or replayed
+  if it corresponds to the current playlist entry);
 - \"current\": the current playlist entry will be played again;
 - \"none\": playback is stopped.
 
@@ -395,14 +395,9 @@ https://mpv.io/manual/master/#command-interface-playlist-play-index"
       (pcase pos
 	("current" (mpv-seek 0))
 	((and (pred numberp) (pred (= cur))) (mpv-seek 0))
-	("none" (mpv-set-property "pause" "no"))
+	("none" (mpv-set-property "pause" "yes"))
 	((and (pred numberp) (pred (<= 0)))
-	 (cl-loop repeat (abs (- pos cur))
-		  do (sleep-for 0.10)
-		  if (> cur pos) do
-		  (mpv-run-command "playlist-prev")
-		  else do
-		  (mpv-run-command "playlist-next")))
+	 (mpv-set-property "playlist-pos" pos))
 	(_ (error "`playlist-play-index' failed: invalid parameter"))))))
 
 (provide 'mpv)
