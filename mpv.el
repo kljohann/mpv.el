@@ -68,6 +68,11 @@
   :type 'number
   :group 'mpv)
 
+(defcustom mpv-on-start-timeout 0.5
+  "Timeout seconds when start mpv."
+  :type 'number
+  :group 'mpv)
+
 (defcustom mpv-on-event-hook nil
   "Hook to run when an event message is received.
 The hook will be called with the parsed JSON message as its only an
@@ -117,8 +122,8 @@ prepended to ARGS."
            (with-demoted-errors (delete-file socket)))
          (run-hooks 'mpv-on-exit-hook))))
     (with-timeout
-        (0.5 (mpv-kill)
-             (error "Failed to connect to mpv"))
+        (mpv-on-start-timeout (mpv-kill)
+                              (error "Failed to connect to mpv"))
       (while (not (file-exists-p socket))
         (sleep-for 0.05)))
     (setq mpv--queue (tq-create
