@@ -63,6 +63,11 @@
   :type 'number
   :group 'mpv)
 
+(defcustom mpv-volume-step 1.50
+  "Scale factor used when adjusting volume."
+  :type 'number
+  :group 'mpv)
+
 (defcustom mpv-seek-step 5
   "Step size in seconds used when seeking."
   :type 'number
@@ -322,6 +327,28 @@ This can be used with the `org-open-at-point-functions' hook."
   "Decrease playback speed by STEPS factors of `mpv-speed-step'."
   (interactive "p")
   (mpv-speed-increase (- steps)))
+
+;;;###autoload
+(defun mpv-volume-set (factor)
+  "Set playback volume to FACTOR."
+  (interactive "nFactor: ")
+  (mpv--enqueue `("set" "volume" ,(abs factor)) #'ignore))
+
+;;;###autoload
+(defun mpv-volume-increase (steps)
+  "Increase playback volume by STEPS factors of `mpv-volume-step'."
+  (interactive "p")
+  (let ((factor (* (abs steps)
+                   (if (> steps 0)
+                       mpv-volume-step
+                     (/ 1 mpv-volume-step)))))
+    (mpv--enqueue `("multiply" "volume" ,factor) #'ignore)))
+
+;;;###autoload
+(defun mpv-volume-decrease (steps)
+  "Decrease playback volume by STEPS factors of `mpv-volume-step'."
+  (interactive "p")
+  (mpv-volume-increase (- steps)))
 
 (defun mpv--raw-prefix-to-seconds (arg)
   "Convert raw prefix argument ARG to seconds using `mpv-seek-step'.

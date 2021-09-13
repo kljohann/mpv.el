@@ -17,6 +17,7 @@ Among others, mpv.el provides
 - `mpv-kill`
 - `mpv-seek-forward` / `mpv-seek-backward`
 - `mpv-speed-increase` / `mpv-speed-decrease`
+- `mpv-volume-increase` / `mpv-speed-volume`
 - `mpv-insert-playback-position`
 - `mpv-seek-to-position-at-point`
 
