@@ -316,10 +316,9 @@ This can be used with the `org-open-at-point-functions' hook."
 (defun mpv-speed-increase (steps)
   "Increase playback speed by STEPS factors of `mpv-speed-step'."
   (interactive "p")
-  (let ((factor (* (abs steps)
-                   (if (> steps 0)
-                       mpv-speed-step
-                     (/ 1 mpv-speed-step)))))
+  (let ((factor (if (>= steps 0)
+                    (* steps mpv-speed-step)
+                  (/ 1 (* (- steps) mpv-speed-step)))))
     (mpv--enqueue `("multiply" "speed" ,factor) #'ignore)))
 
 ;;;###autoload
@@ -338,10 +337,9 @@ This can be used with the `org-open-at-point-functions' hook."
 (defun mpv-volume-increase (steps)
   "Increase playback volume by STEPS factors of `mpv-volume-step'."
   (interactive "p")
-  (let ((factor (* (abs steps)
-                   (if (> steps 0)
-                       mpv-volume-step
-                     (/ 1 mpv-volume-step)))))
+  (let ((factor (if (>= steps 0)
+                    (* steps mpv-volume-step)
+                  (/ 1 (* (- steps) mpv-volume-step)))))
     (mpv--enqueue `("multiply" "volume" ,factor) #'ignore)))
 
 ;;;###autoload
