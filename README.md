@@ -19,6 +19,7 @@ Among others, mpv.el provides
 - `mpv-speed-increase` / `mpv-speed-decrease`
 - `mpv-insert-playback-position`
 - `mpv-seek-to-position-at-point`
+- `mpv-playlist-next` / `mpv-playlist-prev`
 
 Apart from that, just have a look at the interactive functions in
 [mpv.el](mpv.el) or the [wiki][] for tips on configuration.
