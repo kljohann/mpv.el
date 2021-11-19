@@ -68,6 +68,11 @@
   :type 'number
   :group 'mpv)
 
+(defcustom mpv-volume-step 1.10
+  "Scale factor used when adjusting volume."
+  :type 'number
+  :group 'mpv)
+
 (defcustom mpv-on-event-hook nil
   "Hook to run when an event message is received.
 The hook will be called with the parsed JSON message as its only an
@@ -322,6 +327,22 @@ This can be used with the `org-open-at-point-functions' hook."
   "Decrease playback speed by STEPS factors of `mpv-speed-step'."
   (interactive "p")
   (mpv-speed-increase (- steps)))
+
+;;;###autoload
+(defun mpv-volume-increase (steps)
+  "Increase volume by STEPS factors of `mpv-volume-step'."
+  (interactive "p")
+  (let ((factor (* (abs steps)
+                   (if (> steps 0)
+                       mpv-volume-step
+                     (/ 1 mpv-volume-step)))))
+    (mpv--enqueue `("multiply" "volume" ,factor) #'ignore)))
+
+;;;###autoload
+(defun mpv-volume-decrease (steps)
+  "Decrease volume by STEPS factors of `mpv-volume-step'."
+  (interactive "p")
+  (mpv-volume-increase (- steps)))
 
 (defun mpv--raw-prefix-to-seconds (arg)
   "Convert raw prefix argument ARG to seconds using `mpv-seek-step'.
