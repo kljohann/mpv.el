@@ -73,11 +73,6 @@
   :type 'number
   :group 'mpv)
 
-(defcustom mpv-volume-step 1.10
-  "Scale factor used when adjusting volume."
-  :type 'number
-  :group 'mpv)
-
 (defcustom mpv-on-event-hook nil
   "Hook to run when an event message is received.
 The hook will be called with the parsed JSON message as its only an
