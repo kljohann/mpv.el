@@ -396,13 +396,13 @@ of \\[universal-argument] will add another `mpv-seek-step' seconds."
 (defun mpv-playlist-next ()
   "Go to the next entry on the playlist."
   (interactive)
-  (mpv--enqueue '("playlist-next" "weak") #'ignore))
+  (mpv--enqueue '("playlist-next") #'ignore))
 
 ;;;###autoload
 (defun mpv-playlist-prev ()
   "Go to the previous entry on the playlist."
   (interactive)
-  (mpv--enqueue '("playlist-prev" "weak") #'ignore))
+  (mpv--enqueue '("playlist-prev") #'ignore))
 
 ;;;###autoload
 (defun mpv-version ()
