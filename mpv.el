@@ -6,7 +6,7 @@
 ;; URL: https://github.com/kljohann/mpv.el
 ;; Version: 0.2.0
 ;; Keywords: tools, multimedia
-;; Package-Requires: ((cl-lib "0.5") (emacs "25.1") (json "1.3") (org "8.0"))
+;; Package-Requires: ((emacs "25.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
