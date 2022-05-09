@@ -377,9 +377,9 @@ Additionally, it sets an indicator for the CURRENT item and/or marks if the item
        (format mpv-entry-format
                title
                (pcase time
-                 ((and n (pred numberp) (guard (> 3600 n)))
+                 ((and n (pred numberp) (guard (< 3600 n)))
                   (format-time-string "%T" n t))
-                 ((pred numberp)
+                 ((and n (pred numberp))
                   (format-time-string "%M:%S" n))))
      title)
    (and current mpv-current-indicator)
