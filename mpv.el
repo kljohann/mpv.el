@@ -272,6 +272,7 @@ or PLAYLIST if provided."
   (interactive)
   (consult--read (mpv--get-formatted-playlist)
                  :prompt "Playlist entries: "
+                 :category 'mpv-file
                  :sort nil))
 
 (defun mpv-show-chapters ()
@@ -280,6 +281,7 @@ in the current mpv playback."
   (interactive)
   (consult--read (mpv--get-formatted-chapters)
                  :prompt "Chapters: "
+                 :category 'mpv-chapter
                  :sort nil))
 
 (defun mpv-jump-to-chapter (chapter)
