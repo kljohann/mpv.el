@@ -457,9 +457,9 @@ See `mpv-start' if you need to pass further arguments and
 playback position."
   (interactive
    (list (yes-or-no-p "Save to watch later?")))
-  (when watch-later
+  (if watch-later
       (mpv-run-command "quit-watch-later")
-      (mpv-kill)))
+    (mpv-kill)))
 
 ;;;###autoload
 (defun mpv-kill ()
