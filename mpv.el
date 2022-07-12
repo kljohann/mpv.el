@@ -343,7 +343,20 @@ in the current mpv playback."
 (defun mpv-set-ab-loop ()
   "Invokes an A-B loop command in the current mpv playback."
   (interactive)
-  (mpv-run-command "ab-loop"))
+  (mpv-run-command "ab-loop")
+  (cl-flet ((ab-loop-p
+             (point)
+             (or (numberp (mpv-get-property point))
+                 (not (string= (mpv-get-property point) "no")))))
+    (cond
+     ((and (not (ab-loop-p "ab-loop-a"))
+           (not (ab-loop-p "ab-loop-b")))
+      (message "Removed A-B loop"))
+     ((and (ab-loop-p "ab-loop-a")
+           (ab-loop-p "ab-loop-b"))
+      (message "Set point B for A-B loop"))
+     ((ab-loop-p "ab-loop-a")
+      (message "Set point A for A-B loop")))))
 
 (defun mpv-chapter-next ()
   "Jumps to the next chapter in the current playback."
