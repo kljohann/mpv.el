@@ -41,7 +41,6 @@
 (require 'json)
 (require 'org)
 (require 'org-timer)
-(require 'consult)
 (require 'tq)
 
 (defgroup mpv nil
@@ -270,19 +269,25 @@ or PLAYLIST if provided."
 (defun mpv-show-playlist ()
   "Shows an interactive completion prompt drawn from the current playlist entries."
   (interactive)
-  (consult--read (mpv--get-formatted-playlist)
-                 :prompt "Playlist entries: "
-                 :category 'mpv-file
-                 :sort nil))
+  (completing-read "Playlist entries: "
+                   (lambda (string pred action)
+                     (if (eq action 'metadata)
+                         `(metadata
+                           (category . mpv-file)
+                           (display-sort-function . ,#'identity))
+                       (complete-with-action action (mpv--get-formatted-playlist) string pred)))))
 
 (defun mpv-show-chapters ()
   "Presents an interactive completion list drawn from the available chapters
 in the current mpv playback."
   (interactive)
-  (consult--read (mpv--get-formatted-chapters)
-                 :prompt "Chapters: "
-                 :category 'mpv-chapter
-                 :sort nil))
+  (completing-read "Chapters: "
+                   (lambda (string pred action)
+                     (if (eq action 'metadata)
+                         `(metadata
+                           (category . mpv-chapter)
+                           (display-sort-function . ,#'identity))
+                       (complete-with-action action (mpv--get-formatted-chapters) string pred)))))
 
 (defun mpv-jump-to-chapter (chapter)
   "Selects CHAPTER to jump to from list of currently available chapters."
