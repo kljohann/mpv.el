@@ -451,6 +451,10 @@ If the entry is LOOPING, `mpv-loop-indicator' is appended."
       formatted-entries
     (user-error "No entries in playlist")))
 
+(defun mpv--url-p (url)
+  "Return if URL is an HTTP(S) URL."
+  (member (url-type (url-generic-parse-url url)) '("http" "https")))
+
 ;;;###autoload
 (defun mpv-play (path)
   "Start an mpv process playing the file at PATH.
@@ -460,6 +464,17 @@ See `mpv-start' if you need to pass further arguments and
 `mpv-default-options' for default options."
   (interactive "fFile: ")
   (mpv-start (expand-file-name path)))
+
+;;;###autoload
+(defun mpv-play-url (url)
+  "Start an mpv process playing the video stream at URL.
+
+See `mpv-start' if you need to pass further arguments and
+`mpv-default-options' for default options."
+  (interactive "sURL: ")
+  (unless (mpv--url-p url)
+    (user-error "Invalid argument: `%s' (must be a valid URL)" url))
+  (mpv-start url))
 
 ;;;###autoload
 (defun mpv-playlist-append (url &rest args)
