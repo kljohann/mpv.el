@@ -462,17 +462,18 @@ See `mpv-start' if you need to pass further arguments and
   (mpv-start (expand-file-name path)))
 
 ;;;###autoload
-(defun mpv-enqueue (url &rest args)
-  "Enqueue URL to the current mpv playlist and optionally set ARGS."
+(defun mpv-playlist-append (url &rest args)
+  "Append URL to the current mpv playlist.
+
+If ARGS are provided, they are passed as per-file options to mpv."
   (interactive "sURL: ")
-  (if args
-      (mpv-run-command "loadfile" url "append"
-                       (string-join
-                        (mapcar (lambda (arg)
-                                  (substring arg 2))
-                                args)
-                        ","))
-    (mpv-run-command "loadfile" url "append"))
+  (mpv-run-command "loadfile" url "append"
+                   (string-join
+                    (mapcar (lambda (arg)
+                              (string-trim-left arg "--"))
+                            args)
+                    ","))
+
   (thread-last
     (mpv-get-property "playlist-count")
     1-
