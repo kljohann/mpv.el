@@ -69,8 +69,13 @@
   :type 'number
   :group 'mpv)
 
-(defcustom mpv-entry-format "%s [%s]"
-  "The format of the entries for mpv listing operations."
+(defcustom mpv-entry-format "%t [%o]"
+  "The format of the entries for mpv listing operations.
+
+The following %-escapes will be expanded using `format-spec':
+
+%t      The entry's title.
+%o      The entry's time offset in `[HH:]MM:SS' format."
   :type 'string
   :group 'mpv)
 
@@ -389,14 +394,13 @@ in the current mpv playback."
 Additionally, it sets an indicator for the CURRENT item and/or marks if the item
  is currently set to LOOP-P."
   (concat
-   (if time
-       (format mpv-entry-format
-               title
-               (pcase time
-                 ((and n (pred numberp) (guard (< 3600 n)))
-                  (format-time-string "%T" n t))
-                 ((and n (pred numberp))
-                  (format-time-string "%M:%S" n))))
+   (if (numberp time)
+       (format-spec
+        mpv-entry-format
+        `((?t . ,title)
+          (?o . ,(format-time-string
+                  (if (< 3600 time) "%T" "%M:%S")
+                  time t))))
      title)
    (and current mpv-current-indicator)
    (and loop-p mpv-loop-indicator)))
