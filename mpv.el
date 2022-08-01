@@ -477,24 +477,38 @@ See `mpv-start' if you need to pass further arguments and
   (mpv-start url))
 
 ;;;###autoload
-(defun mpv-playlist-append (url &rest args)
-  "Append URL to the current mpv playlist.
+(defun mpv--playlist-append (thing &rest args)
+  "Append THING to the current mpv playlist.
 
 If ARGS are provided, they are passed as per-file options to mpv."
-  (interactive "sURL: ")
-  (mpv-run-command "loadfile" url "append"
+  (mpv-run-command "loadfile" thing "append"
                    (string-join
                     (mapcar (lambda (arg)
                               (string-trim-left arg "--"))
                             args)
                     ","))
-
   (thread-last
     (mpv-get-property "playlist-count")
     1-
     (format "playlist/%d/filename")
     (mpv-get-property)
     (message "Added `%s' to the current playlist")))
+
+(defun mpv-playlist-append (path &rest args)
+  "Append the file at PATH to the current mpv playlist.
+
+If ARGS are provided, they are passed as per-file options to mpv."
+  (interactive "fFile: ")
+  (apply 'mpv--playlist-append (expand-file-name path) args))
+
+(defun mpv-playlist-append-url (url &rest args)
+  "Append URL to the current mpv playlist.
+
+If ARGS are provided, they are passed as per-file options to mpv."
+  (interactive "sURL: ")
+  (unless (mpv--url-p url)
+    (user-error "Invalid argument: `%s' (must be a valid URL)" url))
+  (apply 'mpv--playlist-append url args))
 
 ;;;###autoload
 (defun mpv-quit (watch-later)
