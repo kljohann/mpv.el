@@ -487,12 +487,10 @@ If ARGS are provided, they are passed as per-file options to mpv."
                               (string-trim-left arg "--"))
                             args)
                     ","))
-  (thread-last
-    (mpv-get-property "playlist-count")
-    1-
-    (format "playlist/%d/filename")
-    (mpv-get-property)
-    (message "Added `%s' to the current playlist")))
+  (when-let* ((count (mpv-get-property "playlist-count"))
+              (index (1- count))
+              (filename (mpv-get-property (format "playlist/%d/filename" index))))
+    (message "Added `%s' to the current playlist" filename)))
 
 (defun mpv-playlist-append (path &rest args)
   "Append the file at PATH to the current mpv playlist.
