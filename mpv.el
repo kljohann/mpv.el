@@ -33,6 +33,7 @@
 (require 'org)
 (require 'org-timer)
 (require 'tq)
+(require 'url-parse)
 
 (defgroup mpv nil
   "Customization group for mpv."
@@ -396,12 +397,14 @@ A-B loop."
     (user-error "No chapters available")))
 
 (cl-defun mpv--format-entry (title &optional offset &key (current nil) (looping nil))
-  "Format entry for minibuffer display with TITLE, optionally showing a time OFFSET value.
+  "Format TITLE for minibuffer display, optionally showing a time OFFSET value.
 
-When an offset is provided, `mpv-entry-with-offset-format' is used to format the result.
+When an offset is provided, `mpv-entry-with-offset-format' is
+used to format the result.
 
-If the entry corresponds to the CURRENT item, `mpv-current-indicator' is appended.
-If the entry is LOOPING, `mpv-loop-indicator' is appended."
+Markers are appended to the formatted title, in order to indicate
+the CURRENT item, and if an entry is LOOPING.
+See `mpv-current-indicator' and `mpv-loop-indicator' respectively."
   (concat
    (if (numberp offset)
        (format-spec
