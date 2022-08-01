@@ -49,6 +49,11 @@
   :type '(repeat string)
   :group 'mpv)
 
+(defcustom mpv-start-timeout 0.5
+  "Maximum time in seconds that `mpv-start' blocks while waiting for mpv."
+  :type 'number
+  :group 'mpv)
+
 (defcustom mpv-speed-step 1.10
   "Scale factor used when adjusting playback speed."
   :type 'number
@@ -113,8 +118,8 @@ prepended to ARGS."
            (with-demoted-errors (delete-file socket)))
          (run-hooks 'mpv-on-exit-hook))))
     (with-timeout
-        (0.5 (mpv-kill)
-             (error "Failed to connect to mpv"))
+        (mpv-start-timeout (mpv-kill)
+                           (error "Failed to connect to mpv"))
       (while (not (file-exists-p socket))
         (sleep-for 0.05)))
     (setq mpv--queue (tq-create
