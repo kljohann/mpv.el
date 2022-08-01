@@ -143,9 +143,9 @@ prepended to ARGS."
       (while (not (file-exists-p socket))
         (sleep-for 0.05)))
     (setq mpv--queue (tq-create
-                  (make-network-process :name "mpv-socket"
-                                        :family 'local
-                                        :service socket)))
+                      (make-network-process :name "mpv-socket"
+                                            :family 'local
+                                            :service socket)))
     (set-process-filter
      (tq-process mpv--queue)
      (lambda (_proc string)
@@ -194,9 +194,9 @@ Block while waiting for the response."
                 (sleep-for 0.05))))
            (status (alist-get 'error response))
            (data (alist-get 'data response)))
-    (unless (string-equal status "success")
-      (error "`%s' failed: %s" command status))
-    data)))
+      (unless (string-equal status "success")
+        (error "`%s' failed: %s" command status))
+      data)))
 
 (defun mpv--tq-filter (tq string)
   "Append to the queue's buffer and process the new data.
@@ -245,8 +245,9 @@ passes unsolicited event messages to `mpv-on-event-hook'."
      ,@body))
 
 (defun mpv-toggle-loop (&optional playlist)
-  "Cycles between 'inf' and 'no' values for the current file,
-or PLAYLIST if provided."
+  "Cycle between infinite and no looping for the current mpv file.
+
+With prefix argument PLAYLIST, cycle looping of the current playlist instead."
   (interactive "P")
   (let ((prop (if playlist
                   "loop-playlist"
@@ -258,7 +259,7 @@ or PLAYLIST if provided."
               (mpv-get-property prop)))))
 
 (defun mpv-toggle-video ()
-  "Cycles video playback state for the current mpv file."
+  "Cycle video playback state for the current mpv file."
   (interactive)
   (mpv-cycle-property "video"))
 
@@ -315,7 +316,10 @@ minibuffer with completion."
   (mpv-run-command "playlist-remove" index))
 
 (defun mpv-set-chapter-ab-loop (chapter)
-  "Toggle an A-B loop for the timestamps between where CHAPTER is bound."
+  "Toggle an A-B loop for the timestamps between where CHAPTER is bound.
+
+When called interactively, the chapter is read from the
+minibuffer with completion."
   (interactive (list (mpv--completing-read-chapter-index)))
   (let* ((current-chapter (nth chapter
                                (mpv--with-json
@@ -326,7 +330,7 @@ minibuffer with completion."
         (progn
           (mpv-set-property "ab-loop-a" "no")
           (mpv-set-property "ab-loop-b" "no")
-          (message "Removed A-B loop from chapter \"%s\"" title))
+          (message "Removed A-B loop from chapter `%s'" title))
       (progn
         (mpv-set-property "ab-loop-a" current-timestamp)
         (if (eql (mpv-get-property "chapters") (1+ chapter))
@@ -336,10 +340,15 @@ minibuffer with completion."
             (format "chapter-list/%s/time")
             (mpv-get-property)
             (mpv-set-property "ab-loop-b")))
-        (message "Chapter \"%s\" set to A-B loop" title)))))
+        (message "Chapter `%s' set to A-B loop" title)))))
 
 (defun mpv-set-ab-loop ()
-  "Invokes an A-B loop command in the current mpv playback."
+  "Set an A-B loop point to the current playback position.
+
+The first invocation sets the A point of the loop to the current
+playback position, the second sets the B point to the current
+playback position.  A third invocation can be used to remove the
+A-B loop."
   (interactive)
   (mpv-run-command "ab-loop")
   (cl-flet ((ab-loop-p
@@ -357,7 +366,7 @@ minibuffer with completion."
       (message "Set point A for A-B loop")))))
 
 (defun mpv-chapter-next ()
-  "Jumps to the next chapter in the current playback."
+  "Jump to the next chapter in the current playback."
   (interactive)
   (if (mpv--with-json
        (mpv-get-property "chapter-list"))
@@ -368,11 +377,11 @@ minibuffer with completion."
                                (mpv-get-property "chapter")
                                (format "chapter-list/%d/title")
                                (mpv-get-property)
-                               (message)))))
-    (error "No chapters available")))
+                               (message "%s")))))
+    (user-error "No chapters available")))
 
 (defun mpv-chapter-prev ()
-  "Jumps to the previous chapter in the current playback."
+  "Jump to the previous chapter in the current playback."
   (interactive)
   (if (mpv--with-json
        (mpv-get-property "chapter-list"))
@@ -383,27 +392,28 @@ minibuffer with completion."
                                (mpv-get-property "chapter")
                                (format "chapter-list/%d/title")
                                (mpv-get-property)
-                               (message)))))
-    (error "No chapters available")))
+                               (message "%s")))))
+    (user-error "No chapters available")))
 
-(cl-defun mpv--format-entry (title &optional time &key (current nil) (loop-p nil))
-  "Formats entry for minibuffer display with TITLE, optionally showing a TIME value.
-Additionally, it sets an indicator for the CURRENT item and/or marks if the item
- is currently set to LOOP-P."
+(cl-defun mpv--format-entry (title &optional offset &key (current nil) (looping nil))
+  "Format entry for minibuffer display with TITLE, optionally showing a time OFFSET value.
+
+If the entry corresponds to the CURRENT item, `mpv-current-indicator' is appended.
+If the entry is LOOPING, `mpv-loop-indicator' is appended."
   (concat
-   (if (numberp time)
+   (if (numberp offset)
        (format-spec
         mpv-entry-format
         `((?t . ,title)
           (?o . ,(format-time-string
-                  (if (< 3600 time) "%T" "%M:%S")
-                  time t))))
+                  (if (< 3600 offset) "%T" "%M:%S")
+                  offset t))))
      title)
    (and current mpv-current-indicator)
-   (and loop-p mpv-loop-indicator)))
+   (and looping mpv-loop-indicator)))
 
 (defun mpv--get-formatted-chapters ()
-  "Builds a formatted list of the available chapters in the current mpv playback."
+  "Return a formatted list of the available chapters in the current mpv playback."
   (if-let* ((chapters (mpv--with-json
                        (mpv-get-property "chapter-list")))
             (formatted-chapters
@@ -414,19 +424,19 @@ Additionally, it sets an indicator for the CURRENT item and/or marks if the item
                                 (cond
                                  ((and (= counter (mpv-get-property "chapter"))
                                        (eql (mpv-get-property "ab-loop-a") time))
-                                  (mpv--format-entry title time :current t :loop-p t))
+                                  (mpv--format-entry title time :current t :looping t))
                                  ((= counter (mpv-get-property "chapter"))
                                   (mpv--format-entry title time :current t))
                                  ((eql (mpv-get-property "ab-loop-a") time)
-                                  (mpv--format-entry title time :loop-p t))
+                                  (mpv--format-entry title time :looping t))
                                  (t
                                   (mpv--format-entry title time))))
                       do (cl-incf counter))))
       formatted-chapters
-    (error "No chapters available")))
+    (user-error "No chapters available")))
 
 (defun mpv--get-formatted-playlist ()
-  "Builds a formatted list of the current playlist entries."
+  "Return a formatted list of the current playlist entries."
   (if-let* ((entries (mpv--with-json
                       (mpv-get-property "playlist")))
             (formatted-entries
@@ -437,7 +447,7 @@ Additionally, it sets an indicator for the CURRENT item and/or marks if the item
                                     (mpv--format-entry title nil :current t)
                                   (mpv--format-entry title nil))))))
       formatted-entries
-    (error "No entries in playlist")))
+    (user-error "No entries in playlist")))
 
 ;;;###autoload
 (defun mpv-play (path)
@@ -451,7 +461,7 @@ See `mpv-start' if you need to pass further arguments and
 
 ;;;###autoload
 (defun mpv-enqueue (url &rest args)
-  "Enqueues URL to the current mpv playlist and optionally sets ARGS."
+  "Enqueue URL to the current mpv playlist and optionally set ARGS."
   (interactive "sURL: ")
   (if args
       (mpv-run-command "loadfile" url "append"
@@ -466,14 +476,17 @@ See `mpv-start' if you need to pass further arguments and
     1-
     (format "playlist/%d/filename")
     (mpv-get-property)
-    (message "Added \"%s\" to the current playlist")))
+    (message "Added `%s' to the current playlist")))
 
 ;;;###autoload
 (defun mpv-quit (watch-later)
-  "Exits the current mpv process. If WATCH-LATER, exits it and stores the current
-playback position."
+  "Exit the current mpv process.
+
+If WATCH-LATER is non-nil, tell mpv store the current playback
+position for later.  When called interactively, prompt whether to
+do so."
   (interactive
-   (list (yes-or-no-p "Save to watch later?")))
+   (list (y-or-n-p "Save to watch later?")))
   (if watch-later
       (mpv-run-command "quit-watch-later")
     (mpv-kill)))
@@ -656,7 +669,7 @@ the echo area."
   (let ((version (cadr (split-string (car (process-lines mpv-executable "--version"))))))
     (prog1 version
       (if (called-interactively-p 'interactive)
-	  (message "mpv %s" version)))))
+          (message "mpv %s" version)))))
 
 (provide 'mpv)
 ;;; mpv.el ends here
