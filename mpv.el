@@ -45,7 +45,16 @@
   :type 'file
   :group 'mpv)
 
-(defcustom mpv-default-options nil
+(defcustom mpv-option-prefix nil
+  "Prefix that should be prepended to every mpv option on the command line."
+  :type '(choice
+          (const :tag "No prefix" nil)
+          (const :tag "For use with the celluloid GTK+ frontend"
+                 "mpv-")
+          string)
+  :group 'mpv)
+
+(defcustom mpv-default-options '("--no-terminal")
   "List of default options to be passed to mpv."
   :type '(repeat string)
   :group 'mpv)
@@ -115,6 +124,15 @@ The hook will be called with the arguments passed to `mpv-start'."
   "Return non-nil if inferior mpv is running."
   (and mpv--process (eq (process-status mpv--process) 'run)))
 
+(defun mpv--adjust-argument (arg)
+  "Adjust ARG to take `mpv-option-prefix' into account."
+  (if (not mpv-option-prefix)
+      arg
+    (let ((no-dashes (string-trim-left arg "--")))
+      (if (eq no-dashes arg)
+          arg
+        (concat "--" mpv-option-prefix no-dashes)))))
+
 (defun mpv-start (&rest args)
   "Start an mpv process with the specified ARGS.
 
@@ -126,9 +144,9 @@ prepended to ARGS."
                  (expand-file-name "mpv-" temporary-file-directory))))
     (setq mpv--process
           (apply #'start-process "mpv-player" nil mpv-executable
-                 "--no-terminal"
-                 (concat "--input-ipc-server=" socket)
-                 (append mpv-default-options args)))
+                 (mapcar #'mpv--adjust-argument
+                         (append (list (concat "--input-ipc-server=" socket))
+                                 mpv-default-options args))))
     (set-process-query-on-exit-flag mpv--process nil)
     (set-process-sentinel
      mpv--process
@@ -696,13 +714,19 @@ of \\[universal-argument] will add another `mpv-seek-step' seconds."
 ;;;###autoload
 (defun mpv-version ()
   "Return the mpv version string.
-When called interactively, also show a more verbose version in
-the echo area."
+
+When called interactively, show a more verbose version in the
+echo area instead."
   (interactive)
-  (let ((version (cadr (split-string (car (process-lines mpv-executable "--version"))))))
-    (prog1 version
-      (if (called-interactively-p 'interactive)
-          (message "mpv %s" version)))))
+  (let* ((output (split-string (car (process-lines mpv-executable "--version"))))
+         (program (car output))
+         (version (cadr output)))
+    (if (called-interactively-p 'interactive)
+        (message "%s %s" program version)
+      (unless (string= program "mpv")
+        (error "Cannot determine the mpv version, as `mpv-executable' points to `%s'"
+               program))
+      version)))
 
 (provide 'mpv)
 ;;; mpv.el ends here
