@@ -244,11 +244,6 @@ passes unsolicited event messages to `mpv-on-event-hook'."
           (json-false 'false))
      ,@body))
 
-(cl-defmacro mpv--with-entry ((var entry list) &body body)
-  "Binds VAR to the ENTRY index of LIST and evaluates BODY with it."
-  `(let ((,var (cl-position ,entry ,list :test #'equal)))
-     ,@body))
-
 (defun mpv-toggle-loop (&optional playlist)
   "Cycles between 'inf' and 'no' values for the current file,
 or PLAYLIST if provided."
@@ -267,79 +262,81 @@ or PLAYLIST if provided."
   (interactive)
   (mpv-cycle-property "video"))
 
-(defun mpv-show-playlist ()
-  "Shows an interactive completion prompt drawn from the current playlist entries."
-  (interactive)
-  (completing-read "Playlist entries: "
-                   (lambda (string pred action)
-                     (if (eq action 'metadata)
-                         `(metadata
-                           (category . mpv-file)
-                           (display-sort-function . ,#'identity))
-                       (complete-with-action action (mpv--get-formatted-playlist) string pred)))))
+(defun mpv--completing-read-playlist-entry-index ()
+  "Read a playlist entry with completion and return its index in the playlist."
+  (let* ((choices (seq-map-indexed 'cons (mpv--get-formatted-playlist)))
+         (choice
+          (completing-read "Playlist entries: "
+                           (lambda (string pred action)
+                             (if (eq action 'metadata)
+                                 `(metadata
+                                   (category . mpv-file)
+                                   (display-sort-function . ,#'identity))
+                               (complete-with-action action choices string pred)))
+                           nil 'require-match)))
+    (cdr (assoc choice choices))))
 
-(defun mpv-show-chapters ()
-  "Presents an interactive completion list drawn from the available chapters
-in the current mpv playback."
-  (interactive)
-  (completing-read "Chapters: "
-                   (lambda (string pred action)
-                     (if (eq action 'metadata)
-                         `(metadata
-                           (category . mpv-chapter)
-                           (display-sort-function . ,#'identity))
-                       (complete-with-action action (mpv--get-formatted-chapters) string pred)))))
+(defun mpv--completing-read-chapter-index ()
+  "Read a chapter with completion and return its index."
+  (let* ((choices (seq-map-indexed 'cons (mpv--get-formatted-chapters)))
+         (choice
+          (completing-read "Chapters: "
+                           (lambda (string pred action)
+                             (if (eq action 'metadata)
+                                 `(metadata
+                                   (category . mpv-chapter)
+                                   (display-sort-function . ,#'identity))
+                               (complete-with-action action choices string pred)))
+                           nil 'require-match)))
+    (cdr (assoc choice choices))))
 
 (defun mpv-jump-to-chapter (chapter)
-  "Selects CHAPTER to jump to from list of currently available chapters."
-  (interactive
-   (list (mpv-show-chapters)))
-  (mpv--with-entry
-   (entry chapter (mpv--get-formatted-chapters))
-   (mpv-set-property "chapter" entry)))
+  "Jump to chapter CHAPTER.
 
-(defun mpv-jump-to-file (file)
-  "Selects FILE to jump to from list of available playlist entries."
-  (interactive
-   (list (mpv-show-playlist)))
-  (mpv--with-entry
-   (entry file (mpv--get-formatted-playlist))
-   (mpv-run-command "playlist-play-index" entry)))
+When called interactively, the chapter is read from the
+minibuffer with completion."
+  (interactive (list (mpv--completing-read-chapter-index)))
+  (mpv-set-property "chapter" chapter))
 
-(defun mpv-remove-file (file)
-  "Deletes current FILE from the mpv playlist."
-  (interactive
-   (list (mpv-show-playlist)))
-  (mpv--with-entry
-   (entry file (mpv--get-formatted-playlist))
-   (mpv-run-command "playlist-remove" entry)))
+(defun mpv-jump-to-playlist-entry (index)
+  "Jump to entry INDEX of the mpv playlist.
+
+When called interactively, the playlist entry is read from the
+minibuffer with completion."
+  (interactive (list (mpv--completing-read-playlist-entry-index)))
+  (mpv-run-command "playlist-play-index" index))
+
+(defun mpv-remove-playlist-entry (index)
+  "Remove entry INDEX from the mpv playlist.
+
+When called interactively, the playlist entry is read from the
+minibuffer with completion."
+  (interactive (list (mpv--completing-read-playlist-entry-index)))
+  (mpv-run-command "playlist-remove" index))
 
 (defun mpv-set-chapter-ab-loop (chapter)
-  "Toggles an A-B loop for the timestamps between where CHAPTER is bound."
-  (interactive
-   (list (mpv-show-chapters)))
-  (mpv--with-entry
-   (entry chapter (mpv--get-formatted-chapters))
-   (let* ((current-chapter (nth entry
-                                (mpv--with-json
-                                 (mpv-get-property "chapter-list"))))
-          (current-timestamp (alist-get 'time current-chapter))
-          (title (mpv-get-property (format "chapter-list/%s/title" entry))))
-     (if (eql (mpv-get-property "ab-loop-a") current-timestamp)
-         (progn
-           (mpv-set-property "ab-loop-a" "no")
-           (mpv-set-property "ab-loop-b" "no")
-           (message "Removed A-B loop from chapter \"%s\"" title))
-       (progn
-         (mpv-set-property "ab-loop-a" current-timestamp)
-         (if (eql (mpv-get-property "chapters") (1+ entry))
-             (mpv-set-property "ab-loop-b" (mpv-get-property "duration"))
-           (thread-last
-             (1+ entry)
-             (format "chapter-list/%s/time")
-             (mpv-get-property)
-             (mpv-set-property "ab-loop-b")))
-         (message "Chapter \"%s\" set to A-B loop" title))))))
+  "Toggle an A-B loop for the timestamps between where CHAPTER is bound."
+  (interactive (list (mpv--completing-read-chapter-index)))
+  (let* ((current-chapter (nth chapter
+                               (mpv--with-json
+                                (mpv-get-property "chapter-list"))))
+         (current-timestamp (alist-get 'time current-chapter))
+         (title (mpv-get-property (format "chapter-list/%s/title" chapter))))
+    (if (eql (mpv-get-property "ab-loop-a") current-timestamp)
+        (progn
+          (mpv-set-property "ab-loop-a" "no")
+          (mpv-set-property "ab-loop-b" "no")
+          (message "Removed A-B loop from chapter \"%s\"" title))
+      (progn
+        (mpv-set-property "ab-loop-a" current-timestamp)
+        (if (eql (mpv-get-property "chapters") (1+ chapter))
+            (mpv-set-property "ab-loop-b" (mpv-get-property "duration"))
+          (thread-last
+            (1+ chapter)
+            (format "chapter-list/%s/time")
+            (mpv-get-property)
+            (mpv-set-property "ab-loop-b")))
+        (message "Chapter \"%s\" set to A-B loop" title)))))
 
 (defun mpv-set-ab-loop ()
   "Invokes an A-B loop command in the current mpv playback."
