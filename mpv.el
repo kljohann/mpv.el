@@ -69,7 +69,7 @@
   :type 'number
   :group 'mpv)
 
-(defcustom mpv-entry-format "%t [%o]"
+(defcustom mpv-entry-with-offset-format "%t [%o]"
   "The format of the entries for mpv listing operations.
 
 The following %-escapes will be expanded using `format-spec':
@@ -398,12 +398,14 @@ A-B loop."
 (cl-defun mpv--format-entry (title &optional offset &key (current nil) (looping nil))
   "Format entry for minibuffer display with TITLE, optionally showing a time OFFSET value.
 
+When an offset is provided, `mpv-entry-with-offset-format' is used to format the result.
+
 If the entry corresponds to the CURRENT item, `mpv-current-indicator' is appended.
 If the entry is LOOPING, `mpv-loop-indicator' is appended."
   (concat
    (if (numberp offset)
        (format-spec
-        mpv-entry-format
+        mpv-entry-with-offset-format
         `((?t . ,title)
           (?o . ,(format-time-string
                   (if (< 3600 offset) "%T" "%M:%S")
