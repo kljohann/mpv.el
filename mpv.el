@@ -90,6 +90,40 @@ The following %-escapes will be expanded using `format-spec':
   :type 'string
   :group 'mpv)
 
+(defcustom mpv-display-prev-file-indicator "⏴"
+  "The indicator to navigate to the previous file."
+  :type 'string
+  :group 'mpv)
+
+(defcustom mpv-display-next-file-indicator "⏵"
+  "The indicator to navigate to the next file."
+  :type 'string
+  :group 'mpv)
+
+(defcustom mpv-display-pause-indicator "⏸"
+  "The indicator to pause the current playback."
+  :type 'string
+  :group 'mpv)
+
+(defcustom mpv-display-resume-indicator "⯈"
+  "The indicator to resume the current playback."
+  :type 'string
+  :group 'mpv)
+
+(defcustom mpv-display-title-truncate-threshold 29
+  "The number of characters to truncate the
+`mpv-mode-line-mode' title to."
+  :type 'integer
+  :group 'mpv)
+
+(defcustom mpv-playing-time-format " %p/%d "
+  "The format of the currently-playing time in `mpv-playing-time-mode'.
+
+The following %-escapes will be expanded using `format-spec':
+
+%p      The current playback time in `[HH:]MM:SS' format.
+%d      The total playback duration in `[HH:]MM:SS' format.")
+
 (defcustom mpv-on-event-hook nil
   "Hook to run when an event message is received.
 The hook will be called with the parsed JSON message as its only an
@@ -108,8 +142,47 @@ The hook will be called with the arguments passed to `mpv-start'."
   :type 'hook
   :group 'mpv)
 
+(defcustom mpv-started-hook nil
+  "Hook to run when playback starts."
+  :group 'mpv
+  :type 'hook)
+
+(defcustom mpv-paused-hook nil
+  "Hook to run when playback is paused or resumed."
+  :group 'mpv
+  :type 'hook)
+
+(defcustom mpv-finished-hook nil
+  "Hook to run when playback is stopped."
+  :group 'mpv
+  :type 'hook)
+
+(defcustom mpv-seek-hook nil
+  "Hook to run when playback is seeked forward or backward."
+  :group 'mpv
+  :type 'hook)
+
 (defvar mpv--process nil)
 (defvar mpv--queue nil)
+(defvar mpv-mode-line-string nil)
+(defvar mpv-toggle-button nil)
+(defvar mpv-prev-button nil)
+(defvar mpv-next-button nil)
+(defvar mpv-playing-time-string "")
+(defvar mpv-playing-time-display-timer nil)
+(defvar mpv-playing-time 0)
+(defvar mpv-total-duration nil)
+(defvar mpv-playlist-p nil)
+(defvar mpv-paused-p nil)
+(defvar mpv-stopped-p nil)
+
+(defmacro mpv--with-json (&rest body)
+  "Decode JSON result appropriately from BODY."
+  `(let* ((json-object-type 'alist)
+          (json-array-type 'list)
+          (json-key-type 'symbol)
+          (json-false 'false))
+     ,@body))
 
 (defun mpv-live-p ()
   "Return non-nil if inferior mpv is running."
@@ -236,14 +309,6 @@ passes unsolicited event messages to `mpv-on-event-hook'."
           (tq-queue-pop tq))))
       ;; Recurse to check for further JSON messages.
       (mpv--tq-process-buffer tq))))
-
-(defmacro mpv--with-json (&rest body)
-  "Decode JSON result appropriately from BODY."
-  `(let* ((json-object-type 'alist)
-          (json-array-type 'list)
-          (json-key-type 'symbol)
-          (json-false 'false))
-     ,@body))
 
 (defun mpv-toggle-loop (&optional playlist)
   "Cycle between infinite and no looping for the current mpv file.
@@ -493,7 +558,9 @@ If ARGS are provided, they are passed as per-file options to mpv."
   (when-let* ((count (mpv-get-property "playlist-count"))
               (index (1- count))
               (filename (mpv-get-property (format "playlist/%d/filename" index))))
-    (message "Added `%s' to the current playlist" filename)))
+    (message "Added `%s' to the current playlist" filename)
+    (when mpv-mode-line-mode
+      (mpv-display-playlist-status))))
 
 (defun mpv-playlist-append (path &rest args)
   "Append the file at PATH to the current mpv playlist.
@@ -537,7 +604,8 @@ do so."
     (while (mpv-live-p)
       (sleep-for 0.05)))
   (setq mpv--process nil)
-  (setq mpv--queue nil))
+  (setq mpv--queue nil)
+  (run-hooks #'mpv-finished-hook))
 
 ;;;###autoload
 (defun mpv-pause ()
@@ -703,6 +771,194 @@ the echo area."
     (prog1 version
       (if (called-interactively-p 'interactive)
           (message "mpv %s" version)))))
+
+(defun mpv-playing-time-start ()
+  "Set up the display of mpv playback time."
+  (setq mpv-total-duration nil)
+  (if (and mpv-playing-time (not mpv-stopped-p))
+      (mpv-playing-time-seek)
+    (setq mpv-playing-time 0))
+  (unless mpv-playing-time-display-timer
+    (if (or mpv-paused-p mpv-stopped-p)
+        (mpv-playing-time-display)
+      (setq mpv-playing-time-display-timer
+            (run-at-time t 1 #'mpv-playing-time-display)))))
+
+(defun mpv-playing-time-pause ()
+  "Pause displaying the current mpv playback time."
+  (if mpv-paused-p
+      (mpv-playing-time-stop)
+    (unless mpv-playing-time-display-timer
+      (setq mpv-playing-time-display-timer
+            (run-at-time t 1 #'mpv-playing-time-display)))))
+
+(defun mpv-playing-time-stop ()
+  "Clear the playing time of the current mpv playback."
+  (when (or (not mpv-paused-p) mpv-stopped-p (not mpv-playing-time-mode))
+    (setq mpv-playing-time-string "")
+    (force-mode-line-update t))
+  (when mpv-playing-time-display-timer
+    (cancel-timer mpv-playing-time-display-timer))
+  (setq mpv-playing-time-display-timer nil)
+  (setq mpv-total-duration nil))
+
+(defun mpv-playing-time-seek ()
+  "Seek forward or backward in the displayed playing time."
+  (when-let ((playing-time (mpv-get-property "playback-time")))
+    (when (numberp playing-time)
+      (setq mpv-playing-time playing-time)))
+  (when (< mpv-playing-time 0)
+    (setq mpv-playing-time 0)))
+
+(defun mpv-playing-time-display ()
+  "Display the current MPV playing time."
+  (unless (and mpv-paused-p mpv-playlist-p)
+    (setq mpv-playing-time (round (1+ mpv-playing-time))))
+  (unless mpv-total-duration
+    (setq mpv-total-duration (or (ignore-errors (mpv-get-property "duration")) 0)))
+  (cl-flet ((format-time
+             (time)
+             (format-time-string
+              (if (< 3600 time) "%T" "%M:%S")
+              time t)))
+    (if-let* ((formatted-playing-time (format-time mpv-playing-time))
+              (formatted-total (format-time mpv-total-duration)))
+        (setq mpv-playing-time-string
+              (if (null mpv-playing-time-mode)
+                  ""
+                (format-spec mpv-playing-time-format
+                             `((?p . ,formatted-playing-time)
+                               (?d . ,formatted-total)))))
+      (setq mpv-playing-time-string ""))
+    (force-mode-line-update t)))
+
+(defun mpv-mode-line-clear ()
+  "Clear the mode line after the current file ends or the process exits."
+  (setq mpv-playing-time nil)
+  (setq mpv-mode-line-string nil)
+  (setq mpv-toggle-button nil)
+  (setq mpv-prev-button nil)
+  (setq mpv-next-button nil)
+  (setq mpv-playing-time-string nil))
+
+(defun mpv-display-playlist-status ()
+  "Display the playlist status for the current playback."
+  (let ((playlist (ignore-errors (mpv--with-json
+                                  (mpv-get-property "playlist")))))
+    (if (and (not (equal playlist 'false))
+             (consp playlist)
+             (> (length playlist) 1))
+        (progn
+          (setq mpv-playlist-p t)
+          (setq mpv-prev-button mpv-display-prev-file-indicator)
+          (setq mpv-next-button mpv-display-next-file-indicator))
+      (setq mpv-playlist-p nil)
+      (setq mpv-prev-button nil)
+      (setq mpv-next-button nil)))
+  (force-mode-line-update t))
+
+(defun mpv-display-pause-status ()
+  "Display the pause status for the current playback."
+  (prog1
+      (if (and (mpv-live-p) (equal (mpv--with-json (mpv-get-property "pause")) 'false))
+          (progn
+            (setq mpv-paused-p nil)
+            (setq mpv-toggle-button mpv-display-pause-indicator))
+        (setq mpv-paused-p t)
+        (setq mpv-toggle-button mpv-display-resume-indicator))
+    (force-mode-line-update t)))
+
+(defun mpv-display-title-status ()
+  "Display the current playback title."
+  (prog1
+      (when-let* ((title (mpv--with-json (mpv-get-property "media-title")))
+                  (embellished-title
+                   (and (not (equal title 'false))
+                        (if (stringp title)
+                            (if (<= (length title) (1+ mpv-display-title-truncate-threshold))
+                                (concat title " ")
+                              (let ((shortened-title
+                                     (substring title 0 mpv-display-title-truncate-threshold)))
+                                (if (= (aref shortened-title (- (length shortened-title) 1))
+                                       ?.)
+                                    (concat shortened-title ".. ")
+                                  (concat shortened-title "... "))))
+                          (concat (mpv-get-property "path") " ")))))
+        (setq mpv-mode-line-string embellished-title))
+    (force-mode-line-update t)))
+
+(defun mpv-display-event-handler (result)
+  "Handle the display status in response to mpv events from RESULT."
+  (pcase (alist-get 'event result)
+    ((or "file-loaded" "start-file")
+     (setq mpv-stopped-p nil)
+     (run-at-time 1 nil #'mpv-display-pause-status)
+     (mpv-display-title-status)
+     (mpv-display-playlist-status)
+     (run-hooks 'mpv-started-hook))
+    ((or "pause" "unpause")
+     (mpv-display-pause-status)
+     (run-hooks 'mpv-paused-hook))
+    ("seek"
+     (run-hooks 'mpv-seek-hook))
+    ((or "end-file" "shutdown")
+     (setq mpv-stopped-p t)
+     (mpv-mode-line-clear)
+     (run-hooks 'mpv-finished-hook))))
+
+(defun mpv-display-mode-line (&optional result)
+  "Update and display mpv information in the modeline.
+
+Optionally, provide RESULT to the display event handler. This is
+used to hook mpv events into display actions."
+  (interactive)
+  (if result
+      (mpv-display-event-handler result)
+    (mpv-display-pause-status)
+    (mpv-display-playlist-status)
+    (mpv-display-title-status)))
+
+;;;###autoload
+(define-minor-mode mpv-playing-time-mode
+  "Display the current MPV playing time."
+  :global t :group 'mpv
+  (or global-mode-string (setq global-mode-string '("")))
+  (if mpv-playing-time-mode
+      (progn
+        (mpv-playing-time-start)
+        (or (memq 'mpv-playing-time-string global-mode-string)
+            (setq global-mode-string
+                  (append global-mode-string '(mpv-playing-time-string))))
+        (add-hook 'mpv-started-hook #'mpv-playing-time-start)
+        (add-hook 'mpv-paused-hook #'mpv-playing-time-pause)
+        (add-hook 'mpv-finished-hook #'mpv-playing-time-stop)
+        (add-hook 'mpv-seek-hook #'mpv-playing-time-seek))
+    (mpv-playing-time-stop)
+    (remove-hook 'mpv-started-hook #'mpv-playing-time-start)
+    (remove-hook 'mpv-paused-hook #'mpv-playing-time-pause)
+    (remove-hook 'mpv-finished-hook #'mpv-playing-time-stop)
+    (remove-hook 'mpv-seek-hook #'mpv-playing-time-seek)))
+
+;;;###autoload
+(define-minor-mode mpv-mode-line-mode
+  "Display the current mpv playback information in the mode line."
+  :global t :group 'mpv
+  (setq mpv-mode-line-string nil)
+  (or global-mode-string (setq global-mode-string '("")))
+  (if mpv-mode-line-mode
+      (progn
+        (or (memq 'mpv-mode-line-string global-mode-string)
+            (setq global-mode-string
+                  (append global-mode-string '(mpv-mode-line-string))))
+        (mpv-display-mode-line)
+        (add-hook 'mpv-on-event-hook #'mpv-display-mode-line)
+        (add-hook 'mpv-on-exit-hook #'mpv-mode-line-clear))
+    (setq mpv-mode-line-string nil)
+    (setq mpv-toggle-button nil)
+    (setq mpv-next-button nil)
+    (setq mpv-prev-button nil)
+    (remove-hook 'mpv-on-event-hook #'mpv-display-mode-line)
+    (remove-hook 'mpv-on-exit-hook #'mpv-mode-line-clear)))
 
 (provide 'mpv)
 ;;; mpv.el ends here
