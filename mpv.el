@@ -943,7 +943,6 @@ used to hook mpv events into display actions."
 (define-minor-mode mpv-mode-line-mode
   "Display the current mpv playback information in the mode line."
   :global t :group 'mpv
-  (setq mpv-mode-line-string nil)
   (or global-mode-string (setq global-mode-string '("")))
   (if mpv-mode-line-mode
       (progn
