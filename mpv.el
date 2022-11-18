@@ -774,15 +774,16 @@ the echo area."
 
 (defun mpv-playing-time-start ()
   "Set up the display of mpv playback time."
-  (setq mpv-total-duration nil)
-  (if (and mpv-playing-time (not mpv-stopped-p))
-      (mpv-playing-time-seek)
-    (setq mpv-playing-time 0))
-  (unless mpv-playing-time-display-timer
-    (if (or mpv-paused-p mpv-stopped-p)
-        (mpv-playing-time-display)
-      (setq mpv-playing-time-display-timer
-            (run-at-time t 1 #'mpv-playing-time-display)))))
+  (when (mpv-live-p)
+    (setq mpv-total-duration nil)
+    (if (and mpv-playing-time (not mpv-stopped-p))
+        (mpv-playing-time-seek)
+      (setq mpv-playing-time 0))
+    (unless mpv-playing-time-display-timer
+      (if (or mpv-paused-p mpv-stopped-p)
+          (mpv-playing-time-display)
+        (setq mpv-playing-time-display-timer
+              (run-at-time t 1 #'mpv-playing-time-display))))))
 
 (defun mpv-playing-time-pause ()
   "Pause displaying the current mpv playback time."
@@ -912,11 +913,12 @@ the echo area."
 Optionally, provide RESULT to the display event handler. This is
 used to hook mpv events into display actions."
   (interactive)
-  (if result
-      (mpv-display-event-handler result)
-    (mpv-display-pause-status)
-    (mpv-display-playlist-status)
-    (mpv-display-title-status)))
+  (when (mpv-live-p)
+    (if result
+        (mpv-display-event-handler result)
+      (mpv-display-pause-status)
+      (mpv-display-playlist-status)
+      (mpv-display-title-status))))
 
 ;;;###autoload
 (define-minor-mode mpv-playing-time-mode
