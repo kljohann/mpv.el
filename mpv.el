@@ -805,7 +805,7 @@ the echo area."
 
 (defun mpv-playing-time-seek ()
   "Seek forward or backward in the displayed playing time."
-  (when-let ((playing-time (mpv-get-property "playback-time")))
+  (when-let ((playing-time (ignore-errors (mpv-get-property "playback-time"))))
     (when (numberp playing-time)
       (setq mpv-playing-time playing-time)))
   (when (< mpv-playing-time 0)
