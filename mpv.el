@@ -819,9 +819,10 @@ the echo area."
     (setq mpv-total-duration (or (ignore-errors (mpv-get-property "duration")) 0)))
   (cl-flet ((format-time
              (time)
-             (format-time-string
-              (if (< 3600 time) "%T" "%M:%S")
-              time t)))
+             (when (numberp time)
+               (format-time-string
+                (if (< 3600 time) "%T" "%M:%S")
+                time t))))
     (if-let* ((formatted-playing-time (format-time mpv-playing-time))
               (formatted-total (format-time mpv-total-duration)))
         (setq mpv-playing-time-string
