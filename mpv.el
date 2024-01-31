@@ -594,10 +594,10 @@ See `org-timer-item' which this is based on."
 This can be used with the `org-open-at-point-functions' hook."
   (interactive)
   (save-excursion
-    (skip-chars-backward ":[:digit:]" (point-at-bol))
-    (when (looking-at "[0-9]+:[0-9]\\{2\\}:[0-9]\\{2\\}")
-      (let ((secs (org-timer-hms-to-secs (match-string 0))))
-        (when (>= secs 0)
+    (skip-chars-backward ".:[:digit:]" (point-at-bol))
+    (when (looking-at "[0-9]+:[0-9]\\{2\\}:[0-9]\\{2\\}\\(\\.[0-9]+\\)?")
+      (let ((secs (match-string-no-properties 0)))
+        (when (>= (org-timer-hms-to-secs secs) 0)
           (mpv-seek secs))))))
 
 ;;;###autoload
@@ -653,11 +653,15 @@ Numeric arguments will be treated as seconds, repeated use
        (log (abs (or (car arg) 4)) 4))))
 
 ;;;###autoload
-(defun mpv-seek (seconds)
-  "Seek to the given (absolute) time in SECONDS.
-A negative value is interpreted relative to the end of the file."
-  (interactive "nPosition in seconds: ")
-  (mpv--enqueue `("seek" ,seconds "absolute") #'ignore))
+(defun mpv-seek (timestamp-or-seconds)
+  "Seek to the given (absolute) time in TIMESTAMP-OR-SECONDS.
+
+Possible value of TIMESTAMP-OR-SECONDS:
+- A string in timestamp format of HH:MM:SS.nnn, e.g. 00:06:30.545 or 00:06:30;
+- A positive decimal represents the absolute seconds, e.g. 30;
+- A negative value is interpreted relative to the end of the file."
+  (interactive "sPosition in timestamp format or seconds: ")
+  (mpv--enqueue `("seek" ,timestamp-or-seconds "absolute") #'ignore))
 
 ;;;###autoload
 (defun mpv-seek-forward (arg)
