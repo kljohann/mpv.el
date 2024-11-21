@@ -597,7 +597,7 @@ See `org-timer-item' which this is based on."
 This can be used with the `org-open-at-point-functions' hook."
   (interactive)
   (save-excursion
-    (skip-chars-backward ":[:digit:]" (point-at-bol))
+    (skip-chars-backward ":[:digit:]" (line-beginning-position))
     (when (looking-at "[0-9]+:[0-9]\\{2\\}:[0-9]\\{2\\}")
       (let ((secs (org-timer-hms-to-secs (match-string 0))))
         (when (>= secs 0)
