@@ -136,7 +136,10 @@ prepended to ARGS."
        (when (memq (process-status process) '(exit signal))
          (mpv-kill)
          (when (file-exists-p socket)
-           (with-demoted-errors (delete-file socket)))
+           (condition-case ()
+               (delete-file socket)
+             (file-error
+              (message "Failed to clean up mpv socket %s" socket))))
          (run-hooks 'mpv-on-exit-hook))))
     (with-timeout
         (mpv-start-timeout (mpv-kill)
